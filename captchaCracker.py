@@ -32,10 +32,9 @@ def main(captchaType:cc.CaptchaType, imagePath:str)->str:
     except Exception as e:
         print("Error:", e)
 
-    # return pred
+    return pred
 
 captchaType = cc.CaptchaType.SUPREME_COURT
-# MODEL_PATH = "model/supremecourt.weights.h5"
 
 argv = sys.argv
 
@@ -46,7 +45,6 @@ if len(argv) < 3:
 if("__main__" == __name__):
     captchaType = cc.CaptchaType(argv[1])
     imagePath = argv[2]
-    # imagePath = os.path.join(os.path.dirname(__file__), argv[2])
     main(captchaType, imagePath)
 else:
     print("module imported")
