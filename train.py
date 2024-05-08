@@ -21,5 +21,3 @@ model = CM.train_model(epochs=60, earlystopping=True)
 # Saving the weights learned by the model to a file
 weights_path = "model/"+ captchaType.value + ".weights.h5"
 model.save_weights(weights_path)
-
-CM.predict(model, train_img_path_list)
