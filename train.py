@@ -1,14 +1,13 @@
 from PIL import Image
 import glob
-import CaptchaCracker as cc
+import core as cc
+
+captchaType = cc.CaptchaType.GOV24
 
 # Training image data path
-train_img_path_list = glob.glob("../images/train/*.png")
+train_img_path_list = glob.glob("images/"+ captchaType.value + "/train/*.png")
 
 # Training image data size
-img_width = 121
-img_height = 41
-
 img = Image.open(train_img_path_list[0])
 img_width = img.width
 img_height = img.height
@@ -17,9 +16,10 @@ img_height = img.height
 CM = cc.CreateModel(train_img_path_list, img_width, img_height)
 
 # Performing model training
-model = CM.train_model(epochs=25)
+model = CM.train_model(epochs=60, earlystopping=True)
 
 # Saving the weights learned by the model to a file
-model.save_weights("model/weights.h5")
-# model.save("model/model.tf", save_format="tf")
-# model.save_weights("model/weights.tf", save_format="tf")
+weights_path = "model/"+ captchaType.value + ".weights.h5"
+model.save_weights(weights_path)
+
+CM.predict(model, train_img_path_list)
