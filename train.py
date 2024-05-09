@@ -2,7 +2,7 @@ from PIL import Image
 import glob
 import core as cc
 
-captchaType = cc.CaptchaType.SUPREME_COURT
+captchaType = cc.CaptchaType.NH_WEB_MAIL
 
 # Training image data path
 train_img_path_list = glob.glob("images/"+ captchaType.value + "/train/*.png")

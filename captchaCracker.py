@@ -1,15 +1,14 @@
 import sys
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import core as cc
 from PIL import Image
 import glob
 
-def main(captchaType:cc.CaptchaType, imagePath:str)->str:
+f = open(os.devnull, 'w')
+s = sys.stdout
+sys.stdout = f
 
-    import logging
-    logging.getLogger('tensorflow').disabled = True
+def main(captchaType:cc.CaptchaType, imagePath:str)->str:
 
     pred = ""
     baseDir = os.path.dirname(__file__)
@@ -28,6 +27,7 @@ def main(captchaType:cc.CaptchaType, imagePath:str)->str:
 
         AM = cc.ApplyModel(weights_path, img_width, img_height, max_length, characters)
         pred = AM.predict(imagePath)
+        sys.stdout = s
         print(pred)
     except Exception as e:
         print("Error:", e)
@@ -39,6 +39,7 @@ captchaType = cc.CaptchaType.SUPREME_COURT
 argv = sys.argv
 
 if len(argv) < 3:
+    sys.stdout = s
     print("Usage: " + os.path.basename(argv[0]) + " supreme_court|gov24|nh_web_mail IMAGE_FILE")
     sys.exit(-1)
 
@@ -47,4 +48,5 @@ if("__main__" == __name__):
     imagePath = argv[2]
     main(captchaType, imagePath)
 else:
+    sys.stdout = s
     print("module imported")
