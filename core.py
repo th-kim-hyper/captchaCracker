@@ -12,6 +12,9 @@ from tensorflow import keras
 from tensorflow.keras import layers
 
 from enum import Enum
+
+tf.keras.__version__
+
 class CaptchaType(Enum):
     SUPREME_COURT = "supreme_court"
     GOV24 = "gov24"
@@ -64,7 +67,7 @@ class CreateModel:
             vocabulary=self.char_to_num.get_vocabulary(), mask_token=None, invert=True
         )
         
-    def train_model(self, epochs=100, earlystopping=False):
+    def train_model(self, epochs=100, earlystopping=False, early_stopping_patience=5):
         # 학습 및 검증을 위한 배치 사이즈 정의
         batch_size = 16
         # 다운 샘플링 요인 수 (Conv: 2, Pooling: 2)
@@ -96,7 +99,7 @@ class CreateModel:
         
         if earlystopping == True:
 
-            early_stopping_patience = 10
+            # early_stopping_patience = 5
             # Add early stopping
             early_stopping = keras.callbacks.EarlyStopping(
                 monitor="val_loss", patience=early_stopping_patience, restore_best_weights=True

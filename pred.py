@@ -4,11 +4,11 @@ import time
 from PIL import Image
 import core as cc
 
-captchaType = cc.CaptchaType.SUPREME_COURT
+captchaType = cc.CaptchaType.NH_WEB_MAIL
 pred_img_path_list = glob.glob("images/"+ captchaType.value + "/pred/*.png")
 train_img_path_list = glob.glob("images/"+ captchaType.value + "/train/*.png")
 
-# Target image data size
+# # Target image data size
 img = Image.open(pred_img_path_list[0])
 img_width = img.width
 img_height = img.height
@@ -20,6 +20,11 @@ characters = sorted(set(char for label in labels for char in label))
 weights_path = "model/"+ captchaType.value + ".weights.h5"
 
 AM = cc.ApplyModel(weights_path, img_width, img_height, max_length, characters)
+
+# import tensorflow as tf
+# from tensorflow import keras
+# from tensorflow.keras import layers
+# AM = keras.models.load_model(weights_path)
 
 matched = 0
 

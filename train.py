@@ -2,7 +2,7 @@ from PIL import Image
 import glob
 import core as cc
 
-captchaType = cc.CaptchaType.GOV24
+captchaType = cc.CaptchaType.SUPREME_COURT
 
 # Training image data path
 train_img_path_list = glob.glob("images/"+ captchaType.value + "/train/*.png")
@@ -16,8 +16,10 @@ img_height = img.height
 CM = cc.CreateModel(train_img_path_list, img_width, img_height)
 
 # Performing model training
-model = CM.train_model(epochs=60, earlystopping=True)
+model = CM.train_model(epochs=100, earlystopping=True, early_stopping_patience=6)
 
 # Saving the weights learned by the model to a file
 weights_path = "model/"+ captchaType.value + ".weights.h5"
-model.save_weights(weights_path)
+# model.save_weights(weights_path)
+model.save(weights_path)
+# model.save("model/"+ captchaType.value)
