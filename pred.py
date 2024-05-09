@@ -5,11 +5,11 @@ from PIL import Image
 import core as cc
 
 captchaType = cc.CaptchaType.NH_WEB_MAIL
-pred_img_path_list = glob.glob("images/"+ captchaType.value + "/pred/*.png")
-train_img_path_list = glob.glob("images/"+ captchaType.value + "/train/*.png")
+pred_img_path_list = glob.glob(os.path.join("images", captchaType.value, "pred") + os.sep + "*.png")
+train_img_path_list = glob.glob(os.path.join("images", captchaType.value, "train") + os.sep + "*.png")
 
 # # Target image data size
-img = Image.open(pred_img_path_list[0])
+img = Image.open(train_img_path_list[0])
 img_width = img.width
 img_height = img.height
 

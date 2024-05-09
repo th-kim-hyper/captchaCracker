@@ -20,6 +20,13 @@ class CaptchaType(Enum):
     GOV24 = "gov24"
     NH_WEB_MAIL = "nh_web_mail" 
 
+class Common():
+    def __init__(self):
+        pass
+
+    def get_base_dir(self):
+        return os.path.dirname(os.path.abspath(__file__))
+
 class CTCLayer(layers.Layer):
     def __init__(self, name=None):
         super().__init__(name=name)
