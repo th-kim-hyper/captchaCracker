@@ -3,7 +3,7 @@ import time
 from PIL import Image
 import core as cc
 
-CAPTCHA_TYPE = cc.CaptchaType.SUPREME_COURT
+CAPTCHA_TYPE = cc.CaptchaType.NH_WEB_MAIL
 
 pred_img_path_list = cc.get_image_files(CAPTCHA_TYPE, train=False)
 train_img_path_list = cc.get_image_files(CAPTCHA_TYPE, train=True)
