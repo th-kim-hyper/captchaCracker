@@ -1,31 +1,32 @@
 import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import glob
 import numpy as np
-
-import io
-from PIL import Image
 from pathlib import Path
-from collections import Counter
-
 import tensorflow as tf
+tf.get_logger().setLevel('ERROR')
+tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 from tensorflow import keras
 from tensorflow.keras import layers
-
 from enum import Enum
-
-tf.keras.__version__
 
 class CaptchaType(Enum):
     SUPREME_COURT = "supreme_court"
     GOV24 = "gov24"
     NH_WEB_MAIL = "nh_web_mail" 
 
-class Common():
-    def __init__(self):
-        pass
+def get_base_dir():
+    return os.path.dirname(os.path.abspath(__file__))
 
-    def get_base_dir(self):
-        return os.path.dirname(os.path.abspath(__file__))
+def get_image_files(cap_type:CaptchaType, train=True):
+    baseDir = get_base_dir()
+    imgDir = os.path.join(baseDir, "images", cap_type.value, "train" if train else "pred")
+    return glob.glob(imgDir + os.sep + "*.png")
+
+def get_weights_path(cap_type:CaptchaType):
+    baseDir = get_base_dir()
+    weightsDir = os.path.join(baseDir, "model")
+    return weightsDir + os.sep + cap_type.value + ".weights.h5"
 
 class CTCLayer(layers.Layer):
     def __init__(self, name=None):
@@ -47,7 +48,6 @@ class CTCLayer(layers.Layer):
 
         # At test time, just return the computed predictions
         return y_pred
-
 
 
 class CreateModel:

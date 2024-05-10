@@ -1,17 +1,23 @@
 import sys
 import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import core as cc
 from PIL import Image
 import glob
+import tensorflow as tf
+tf.get_logger().setLevel('ERROR')
+tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 
-f = open(os.devnull, 'w')
-s = sys.stdout
-sys.stdout = f
+CAPTCHA_TYPE = cc.CaptchaType.SUPREME_COURT
+ARGV = sys.argv
+NULL_OUT = open(os.devnull, 'w')
+ORI_OUT = sys.stdout
+BASE_DIR = cc.get_base_dir()
 
-def main(captchaType:cc.CaptchaType, imagePath:str)->str:
+def main(captchaType:cc.CaptchaType, imagePath:str):
 
     pred = ""
-    baseDir = os.path.dirname(__file__)
+    baseDir = BASE_DIR
 
     try:
         img = Image.open(os.path.join(baseDir, imagePath))
@@ -27,26 +33,24 @@ def main(captchaType:cc.CaptchaType, imagePath:str)->str:
 
         AM = cc.ApplyModel(weights_path, img_width, img_height, max_length, characters)
         pred = AM.predict(imagePath)
-        sys.stdout = s
-        print(pred)
     except Exception as e:
+        sys.stdout = ORI_OUT
         print("Error:", e)
 
     return pred
 
-captchaType = cc.CaptchaType.SUPREME_COURT
-
-argv = sys.argv
-
-if len(argv) < 3:
-    sys.stdout = s
-    print("Usage: " + os.path.basename(argv[0]) + " supreme_court|gov24|nh_web_mail IMAGE_FILE")
+if len(ARGV) < 3:
+    print("Usage: " + os.path.basename(ARGV[0]) + " supreme_court|gov24|nh_web_mail IMAGE_FILE")
     sys.exit(-1)
 
 if("__main__" == __name__):
-    captchaType = cc.CaptchaType(argv[1])
-    imagePath = argv[2]
-    main(captchaType, imagePath)
+    sys.stdout = NULL_OUT
+    CAPTCHA_TYPE = cc.CaptchaType(ARGV[1])
+    imagePath = ARGV[2]
+    pred = main(CAPTCHA_TYPE, imagePath)
+    sys.stdout = ORI_OUT
+    print(pred)
+    sys.exit(0)
+
 else:
-    sys.stdout = s
     print("module imported")
