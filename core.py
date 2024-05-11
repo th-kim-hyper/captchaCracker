@@ -1,11 +1,11 @@
 import os
-os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+# os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
+# os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import glob
 import numpy as np
 import tensorflow as tf
-tf.get_logger().setLevel('ERROR')
-tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
+# tf.get_logger().setLevel('ERROR')
+# tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 from tensorflow import keras
 from tensorflow.keras import layers
 from enum import Enum

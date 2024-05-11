@@ -2,8 +2,8 @@ import os
 from PIL import Image
 import core as cc
 import tensorflow as tf
-tf.get_logger().setLevel('ERROR')
-tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
+# tf.get_logger().setLevel('ERROR')
+# tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 from tensorflow import keras
 
 PATIENCE = 7
