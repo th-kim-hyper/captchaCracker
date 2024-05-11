@@ -3,13 +3,16 @@ import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import core as cc
 from PIL import Image
-import glob
 import tensorflow as tf
 tf.get_logger().setLevel('ERROR')
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
+import absl.logging
+absl.logging.set_verbosity(absl.logging.ERROR)
+import time
+start = time.time()
 
 CAPTCHA_TYPE = cc.CaptchaType.SUPREME_COURT
-WEIGHT_ONLY = False
+WEIGHT_ONLY = True
 ARGV = sys.argv
 NULL_OUT = open(os.devnull, 'w')
 ORI_OUT = sys.stdout
@@ -48,6 +51,8 @@ if("__main__" == __name__):
     pred = main(CAPTCHA_TYPE, imagePath)
     sys.stdout = ORI_OUT
     print(pred)
+    end = time.time()
+    # print("time : ", end - start, "sec")
     sys.exit(0)
 
 else:
