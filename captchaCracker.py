@@ -9,6 +9,7 @@ tf.get_logger().setLevel('ERROR')
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 
 CAPTCHA_TYPE = cc.CaptchaType.SUPREME_COURT
+WEIGHT_ONLY = False
 ARGV = sys.argv
 NULL_OUT = open(os.devnull, 'w')
 ORI_OUT = sys.stdout
@@ -23,16 +24,13 @@ def main(captchaType:cc.CaptchaType, imagePath:str):
         img = Image.open(os.path.join(baseDir, imagePath))
         img_width = img.width
         img_height = img.height
-
-        weights_path = os.path.join(baseDir, "model", captchaType.value + ".weights.h5")
-        train_img_dir = os.path.join(baseDir, "images", captchaType.value, "train")
-        train_img_path_list = glob.glob(train_img_dir + os.sep + "*.png")
+        weights_path = cc.get_weights_path(captchaType, WEIGHT_ONLY)
+        train_img_path_list = cc.get_image_files(captchaType, train=True)
         labels = [img.split(os.path.sep)[-1].split(".png")[0] for img in train_img_path_list]
         max_length = max([len(label) for label in labels])
         characters = sorted(set(char for label in labels for char in label))
-
-        AM = cc.ApplyModel(weights_path, img_width, img_height, max_length, characters)
-        pred = AM.predict(imagePath)
+        prediction_model = cc.load_model(weights_path, img_width, img_height, max_length, characters)
+        pred = cc.predict(prediction_model, imagePath, img_width, img_height, max_length, characters)
     except Exception as e:
         sys.stdout = ORI_OUT
         print("Error:", e)
