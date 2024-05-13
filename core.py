@@ -1,78 +1,8 @@
 import os
-# os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
-# os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-import glob
 import numpy as np
 import tensorflow as tf
-# tf.get_logger().setLevel('ERROR')
-# tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 from tensorflow import keras
 from tensorflow.keras import layers
-from enum import Enum
-
-class CaptchaType(Enum):
-    SUPREME_COURT = "supreme_court"
-    GOV24 = "gov24"
-    NH_WEB_MAIL = "nh_web_mail" 
-
-def get_base_dir():
-    return os.path.dirname(os.path.abspath(__file__))
-
-def get_image_files(cap_type:CaptchaType, train=True):
-    baseDir = get_base_dir()
-    imgDir = os.path.join(baseDir, "images", cap_type.value, "train" if train else "pred")
-    return glob.glob(imgDir + os.sep + "*.png")
-
-def get_weights_path(cap_type:CaptchaType, weightsOnly=False):
-    baseDir = get_base_dir()
-    weightsDir = os.path.join(baseDir, "model", cap_type.value)
-    if weightsOnly:
-        weightsDir = weightsDir + ".weights.h5"
-
-    return weightsDir
-
-def encode_single_sample(img_path, img_width, img_height):
-    pred_img = tf.io.read_file(img_path)
-    pred_img = tf.io.decode_png(pred_img, channels=1)
-    pred_img = tf.image.convert_image_dtype(pred_img, tf.float32)
-    pred_img = tf.image.resize(pred_img, [img_height, img_width])
-    pred_img = tf.transpose(pred_img, perm=[1, 0, 2])
-    pred_img = tf.reshape(pred_img, shape=[1,img_width,img_height,1])
-    return pred_img
-
-def decode_batch_predictions(pred_val, characters, max_length):
-
-    char_to_num = layers.experimental.preprocessing.StringLookup(
-        vocabulary=sorted(characters), num_oov_indices=0, mask_token=None
-    )
-    num_to_char = layers.experimental.preprocessing.StringLookup(
-        vocabulary=char_to_num.get_vocabulary(), mask_token=None, invert=True
-    )
-
-    input_len = np.ones(pred_val.shape[0]) * pred_val.shape[1]
-    results = keras.backend.ctc_decode(pred_val, input_length=input_len, greedy=True)[0][0][:, :max_length]
-    # Iterate over the results and get back the text
-    output_text = []
-    for res in results:
-        res = tf.strings.reduce_join(num_to_char(res+1)).numpy().decode("utf-8")
-        output_text.append(res)
-    return output_text
-
-def load_model(model_path, img_width, img_height, max_length, characters):
-    if(os.path.splitext(model_path)[-1] == ".h5"):
-        model = ApplyModel(model_path, img_width, img_height, max_length, characters)
-        prediction_model = model.prediction_model
-    else:
-        model = keras.models.load_model(model_path)
-        prediction_model = keras.models.Model(model.get_layer(name="image").input, model.get_layer(name="dense2").output)
-
-    return prediction_model
-
-def predict(prediction_model, pred_img_path, img_width, img_height, max_length, characters):
-    target_img = encode_single_sample(pred_img_path, img_width, img_height)
-    pred_val = prediction_model.predict(target_img)
-    pred = decode_batch_predictions(pred_val, characters, max_length)[0]
-    return pred
 
 class CTCLayer(layers.Layer):
     def __init__(self, name=None):
