@@ -1,6 +1,6 @@
-import hyper
+from hyper import CaptchaType, Hyper
 
-CAPTCHA_TYPE = hyper.CaptchaType.NH_WEB_MAIL
+CAPTCHA_TYPE = CaptchaType.NH_WEB_MAIL
 PATIENCE = 7
 
-hyper.model_train(CAPTCHA_TYPE, PATIENCE)
+Hyper().model_train(CAPTCHA_TYPE, PATIENCE)
