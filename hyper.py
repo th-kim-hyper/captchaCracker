@@ -68,6 +68,14 @@ class Hyper:
 
         return weightsDir
 
+    def get_model(self, captcha_type:CaptchaType, weight_only):
+        train_img_path_list = self.get_image_files(captcha_type, train=True)
+        img_width, img_height = self.get_image_info(train_img_path_list)
+        max_length, characters = self.get_train_info(train_img_path_list)
+        weights_path = self.get_weights_path(captcha_type, weight_only)
+        model = ApplyModel(weights_path, img_width, img_height, max_length, characters)
+        return model
+
     def model_train(self, captcha_type:CaptchaType, patience:int=7):
         train_img_path_list = self.get_image_files(captcha_type, train=True)
         img_width, img_height = self.get_image_info(train_img_path_list)
@@ -78,7 +86,7 @@ class Hyper:
         weights_path = self.get_weights_path(captcha_type, False)
         model.save(weights_path)
 
-    def model_predict(self, captcha_type:CaptchaType, weight_only=True):
+    def model_validate(self, captcha_type:CaptchaType, weight_only=True):
         start = time.time()
         matched = 0
 
@@ -103,6 +111,18 @@ class Hyper:
 
         print("Matched:", matched, ", Tottal : ", len(pred_img_path_list))
         print("pred time : ", end - start, "sec")
+
+    def predict(self, captcha_type:CaptchaType, weight_only, image_path:str):
+        self.quiet(True)
+        model = self.get_model(captcha_type, weight_only)
+        pred = model.predict(image_path)
+        return pred
+
+    def predict_from_bytes(self, captcha_type:CaptchaType, weight_only, image_bytes:bytes):
+        self.quiet(True)
+        model = self.get_model(captcha_type, weight_only)
+        pred = model.predict_from_bytes(image_bytes)
+        return pred
 
 class CTCLayer(layers.Layer):
     def __init__(self, name=None):

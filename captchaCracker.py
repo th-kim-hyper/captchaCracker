@@ -1,6 +1,6 @@
-# -*- coding:utf-8 -*-
-
 import os
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import sys
 import time
 from hyper import CaptchaType, Hyper, ApplyModel
@@ -18,12 +18,7 @@ def main(captchaType:CaptchaType, weight_only, imagePath:str):
     pred = ""
 
     try:
-        train_img_path_list = HYPER.get_image_files(captchaType, train=True)
-        img_width, img_height = HYPER.get_image_info(train_img_path_list)
-        max_length, characters = HYPER.get_train_info(train_img_path_list)
-        weights_path = HYPER.get_weights_path(captchaType, weight_only)
-        model = ApplyModel(weights_path, img_width, img_height, max_length, characters)
-        pred = model.predict(imagePath)
+        pred = HYPER.predict(captchaType, weight_only, imagePath)
     except Exception as e:
         HYPER.quiet(False)
         print("Error:", e)
