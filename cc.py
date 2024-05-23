@@ -1,6 +1,6 @@
 import os, sys
 os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
-os.environ["KERAS_BACKEND"] = "tensorflow"
+# os.environ["KERAS_BACKEND"] = "tensorflow"
 import glob
 import numpy as np
 from enum import Enum
@@ -13,11 +13,7 @@ class CaptchaType(Enum):
 
 class Hyper:
 
-    print("Hyper class declared")
-
     def __init__(self, captcha_type=CaptchaType.SUPREME_COURT, weights_only=True, quiet_out=False):
-        print("Hyper class init")
-
         self.NULL_OUT = open(os.devnull, 'w')
         self.STD_OUT = sys.stdout
 
@@ -31,8 +27,8 @@ class Hyper:
         from tensorflow.keras import layers
 
         self.base_dir = os.path.dirname(os.path.abspath(__file__))
-        self.train_image_paths = self.image_paths(True)
-        self.pred_image_paths = self.image_paths(False)
+        self.train_image_paths = sorted(self.image_paths(True))
+        self.pred_image_paths = sorted(self.image_paths(False))
         self.model_path = self.saved_model_path()
         self.image_width, self.image_height, self.max_length, self.characters, self.labels = self.train_info()
         self.char_to_num = layers.experimental.preprocessing.StringLookup(vocabulary=list(self.characters), mask_token=None)
@@ -63,22 +59,17 @@ class Hyper:
 
     def image_paths(self, train=True):
         imgDir = os.path.join(self.base_dir, "images", self.captcha_type.value, "train" if train else "pred")
-        return sorted(glob.glob(imgDir + os.sep + "*.png"))
+        return glob.glob(imgDir + os.sep + "*.png")
 
     def train_info(self):
         image_path = self.train_image_paths[-1]
         image = Image.open(image_path)
         image_width = image.width
         image_height = image.height
-
         labels = [train_image_path.split(os.path.sep)[-1].split(".png")[0] for train_image_path in self.train_image_paths]
         max_length = max([len(label) for label in labels])
         characters = sorted(set(char for label in labels for char in label))
         return image_width, image_height, max_length, characters, labels
-
-    # def saved_model_path(self):
-        # return self.saved_model_path(self.captcha_type, self.weights_only)
-        # return os.path.join(self.base_dir, "model", self.captcha_type.value, ".weights.h5" if self.weights_only else "")
 
     def saved_model_path(self, captcha_type:CaptchaType=None, weights_only:bool=None):
         if captcha_type is None:
@@ -103,17 +94,18 @@ class Hyper:
         x_valid, y_valid = images[indices[train_samples:]], labels[indices[train_samples:]]
         return x_train, x_valid, y_train, y_valid
 
-    def encode_single_sample(self, img_path):
+    def encode_single_sample(self, img_path, label):
         img = tf.io.read_file(img_path)
         img = tf.io.decode_png(img, channels=1)
         img = tf.image.convert_image_dtype(img, tf.float32)
         img = tf.image.resize(img, [self.image_height, self.image_width])
         img = tf.transpose(img, perm=[1, 0, 2])
-        return {"image": img}
+        # if label is None:
+        #     label = img_path.split(os.path.sep)[-1].split(".png")[0]
+        label = self.char_to_num(tf.strings.unicode_split(label, input_encoding="UTF-8"))
+        return {"image": img, "label": label}
 
     def build_model(self):
-        from tensorflow.keras import layers, models, optimizers
-
         # Inputs to the model
         input_img = layers.Input(
             shape=(self.image_width, self.image_height, 1), name="image", dtype="float32"
@@ -162,24 +154,30 @@ class Hyper:
         output = CTCLayer(name="ctc_loss")(labels, x)
 
         # Define the model
-        model = models.Model(
+        model = keras.models.Model(
             inputs=[input_img, labels], outputs=output, name="ocr_model_v1"
         )
         # Optimizer
-        opt = optimizers.Adam()
+        opt = keras.optimizers.Adam()
         # Compile the model and return
         model.compile(optimizer=opt)
+        return model
+
+    def prediction_model(self):
+        from tensorflow.keras import models
+
+        model = self.build_model()
 
         if os.path.splitext(self.model_path)[-1] == ".h5":
             model.load_weights(self.model_path)
         else:
             model = models.load_model(self.model_path)
 
-        pred_model = models.Model(
+        prediction_model = models.Model(
             model.get_layer(name="image").input, model.get_layer(name="dense2").output
         )
-
-        return pred_model
+        
+        return prediction_model
 
     # A utility function to decode the output of the network
     def decode_batch_predictions(self, pred):
@@ -195,11 +193,10 @@ class Hyper:
             output_text.append(res)
         return output_text
         
-    from tensorflow.keras import models, callbacks
-
-    def predict(self, model:models.Model, image_path):
-        target_img = self.encode_single_sample(image_path)['image']
-        target_img = tf.reshape(target_img, shape=[1,self.image_width,self.image_height,1])
+    def predict(self, pred_image_path):
+        target_img = self.encode_single_sample(pred_image_path, "")['image']
+        target_img = tf.reshape(target_img, shape=[1, self.image_width, self.image_height, 1])
+        model = self.prediction_model()
         pred_val = model.predict(target_img)
         pred = self.decode_batch_predictions(pred_val)[0]
         return pred
@@ -227,6 +224,7 @@ class Hyper:
         print("pred time : ", end - start, "sec")
 
     def train_model(self, epochs=100, earlystopping=True, early_stopping_patience=7):
+        from tensorflow import keras
         # 학습 및 검증을 위한 배치 사이즈 정의
         batch_size = 16
         # 다운 샘플링 요인 수 (Conv: 2, Pooling: 2)
@@ -256,13 +254,10 @@ class Hyper:
         # Get the model
         model = self.build_model()
         
-        from tensorflow.keras import callbacks
-
         if earlystopping == True:
 
-            # early_stopping_patience = 5
             # Add early stopping
-            early_stopping = callbacks.EarlyStopping(
+            early_stopping = keras.callbacks.EarlyStopping(
                 monitor="val_loss", patience=early_stopping_patience, restore_best_weights=True
             )
 
@@ -286,12 +281,14 @@ class Hyper:
 
 import numpy as np
 import tensorflow as tf
-from tensorflow.keras import layers, backend
+from tensorflow import keras
+from tensorflow.keras import layers
+import time
 
 class CTCLayer(layers.Layer):
     def __init__(self, name=None):
         super().__init__(name=name)
-        self.loss_fn = backend.ctc_batch_cost
+        self.loss_fn = keras.backend.ctc_batch_cost
 
     def call(self, y_true, y_pred):
         # Compute the training-time loss value and add it
@@ -310,22 +307,13 @@ class CTCLayer(layers.Layer):
         return y_pred
 
 CAPTCHA_TYPE = CaptchaType.NH_WEB_MAIL
-WEIGHT_ONLY = False
-
-print("A starting")
-print("CAPTCHA_TYPE: ", CAPTCHA_TYPE)
-print("WEIGHT_ONLY: ", WEIGHT_ONLY)
+WEIGHT_ONLY = True
+START_TIME = time.time()
 HYPER = Hyper(CaptchaType.NH_WEB_MAIL, WEIGHT_ONLY, quiet_out=False)
-print("#### train info :", HYPER.image_width, HYPER.image_height, HYPER.max_length)
-print("#### train characters :", HYPER.characters, len(HYPER.characters))
-# model = HYPER.build_model()
-# print("#### model builded:", model)
-# HYPER.train_model(epochs=100, earlystopping=True, early_stopping_patience=7)
-# train_img_path_list = self.get_image_files(captcha_type, train=True)
-# img_width, img_height = self.get_image_info(train_img_path_list)
-# CM = CreateModel(train_img_path_list, img_width, img_height)
-model = HYPER.train_model(epochs=100, earlystopping=True, early_stopping_patience=7)
-# weights_path = HYPER.saved_model_path(CAPTCHA_TYPE, True)
-# model.save_weights(weights_path)
-# weights_path = HYPER.get_weights_path(CAPTCHA_TYPE, False)
-# model.save(weights_path)
+# HYPER.quiet(True)
+# pred = HYPER.predict("C:\\python\\captchaCracker\\images\\nh_web_mail\\pred\\7dgc2.png")
+# HYPER.quiet(False)
+# print(pred)
+HYPER.train_model()
+END_TIME = time.time()
+print("time : ", END_TIME - START_TIME, "sec")

@@ -5,9 +5,10 @@ import time
 from PIL import Image
 from enum import Enum
 import numpy as np
-import tensorflow as tf
-from tensorflow import keras
-from tensorflow.keras import layers
+import absl.logging
+# import tensorflow as tf
+# from tensorflow import keras
+# from tensorflow.keras import layers
 
 class CaptchaType(Enum):
     SUPREME_COURT = "supreme_court"
@@ -16,17 +17,25 @@ class CaptchaType(Enum):
 
 class Hyper:
     
-    def __init__(self):
+    def __init__(self, captcha_type=CaptchaType.SUPREME_COURT, weights_only=True, quiet_out=False):
         self.NULL_OUT = open(os.devnull, 'w')
         self.STD_OUT = sys.stdout
+        self.captcha_type = captcha_type
+        self.weight_only = weights_only
+        self.quiet_out = quiet_out
+        self.base_dir = self.get_base_dir()
+        self.weights_path = self.get_weights_path(captcha_type, weights_only)
+        # self.img_width
+        # self.img_height
+        # self.max_length
+        # self.characters
 
     def quiet(self, value:bool):
-
-        import absl.logging
 
         if value:
             os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
             os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+            import tensorflow as tf
             tf.get_logger().setLevel('ERROR')
             tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
             absl.logging.set_verbosity(absl.logging.ERROR)
@@ -34,6 +43,7 @@ class Hyper:
         else:
             os.environ['TF_ENABLE_ONEDNN_OPTS'] = '1'
             os.environ['TF_CPP_MIN_LOG_LEVEL'] = '0'
+            import tensorflow as tf
             tf.get_logger().setLevel('INFO')
             tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.INFO)
             absl.logging.set_verbosity(absl.logging.INFO)
@@ -60,13 +70,18 @@ class Hyper:
         characters = sorted(set(char for label in labels for char in label))
         return max_length, characters
 
-    def get_weights_path(self, cap_type:CaptchaType, weightsOnly=True):
-        baseDir = self.get_base_dir()
-        weightsDir = os.path.join(baseDir, "model", cap_type.value)
-        if weightsOnly:
-            weightsDir = weightsDir + ".weights.h5"
+    def get_weights_path(self, captcha_type:CaptchaType = None, weights_only:bool = None):
+        if captcha_type is None:
+            captcha_type = self.captcha_type
 
-        return weightsDir
+        if weights_only is None:
+            weights_only = self.weight_only
+
+        weights_path = os.path.join(self.base_dir, "model", captcha_type.value)
+        if weights_only:
+            weights_path = weights_path + ".weights.h5"
+
+        return weights_path
 
     def get_model(self, captcha_type:CaptchaType, weight_only):
         train_img_path_list = self.get_image_files(captcha_type, train=True)
@@ -86,10 +101,15 @@ class Hyper:
         weights_path = self.get_weights_path(captcha_type, False)
         model.save(weights_path)
 
-    def model_validate(self, captcha_type:CaptchaType, weight_only=True):
+    def model_validate(self, captcha_type:CaptchaType = None, weight_only:bool = None):
+
+        if captcha_type is None:
+            captcha_type = self.captcha_type
+        if weight_only is None:
+            weight_only = self.weight_only
+
         start = time.time()
         matched = 0
-
         pred_img_path_list = self.get_image_files(captcha_type, train=False)
         train_img_path_list = self.get_image_files(captcha_type, train=True)
         img_width, img_height = self.get_image_info(train_img_path_list)
@@ -108,7 +128,6 @@ class Hyper:
             print("ori : ", ori, "pred : ", pred, msg)
 
         end = time.time()
-
         print("Matched:", matched, ", Tottal : ", len(pred_img_path_list))
         print("pred time : ", end - start, "sec")
 
@@ -123,6 +142,10 @@ class Hyper:
         model = self.get_model(captcha_type, weight_only)
         pred = model.predict_from_bytes(image_bytes)
         return pred
+
+import tensorflow as tf
+from tensorflow import keras
+from tensorflow.keras import layers
 
 class CTCLayer(layers.Layer):
     def __init__(self, name=None):
@@ -225,7 +248,6 @@ class CreateModel:
 
         
         return model
-    
         
     def encode_single_sample(self, img_path, label):
         # 1. Read image
