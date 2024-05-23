@@ -8,9 +8,11 @@ from cc import CaptchaType, Hyper
 START_TIME = time.time()
 ARGV = sys.argv
 CAPTCHA_TYPE = CaptchaType.SUPREME_COURT
-WEIGHT_ONLY = True
+WEIGHT_ONLY = False
 HYPER = Hyper()
 PRED = ""
+IMG_PATH = ""
+
 END_TIME = None
 
 def main(captchaType:CaptchaType, weight_only, imagePath:str):
@@ -32,13 +34,13 @@ if len(ARGV) < 3:
 if("__main__" == __name__):
     HYPER.quiet(True)
     CAPTCHA_TYPE = CaptchaType(ARGV[1])
-    imagePath = ARGV[2]
-    PRED = main(CAPTCHA_TYPE, WEIGHT_ONLY, imagePath)
+    IMG_PATH = ARGV[2]
+    PRED = main(CAPTCHA_TYPE, WEIGHT_ONLY, IMG_PATH)
     HYPER.quiet(False)
     print(PRED)
-    END_TIME = time.time()
-    print("time : ", END_TIME - START_TIME, "sec")
-    print(PRED, CAPTCHA_TYPE, WEIGHT_ONLY, imagePath)
+    # END_TIME = time.time()
+    # print("time : ", END_TIME - START_TIME, "sec")
+    # print(PRED, CAPTCHA_TYPE, WEIGHT_ONLY, IMG_PATH)
     sys.exit(0)
 
 else:
