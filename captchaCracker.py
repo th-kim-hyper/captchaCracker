@@ -3,7 +3,7 @@ os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import sys
 import time
-from hyper import CaptchaType, Hyper, ApplyModel
+from cc import CaptchaType, Hyper
 
 START_TIME = time.time()
 ARGV = sys.argv
