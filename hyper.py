@@ -25,10 +25,22 @@ class Hyper:
         self.quiet_out = quiet_out
         self.base_dir = self.get_base_dir()
         self.weights_path = self.get_weights_path(captcha_type, weights_only)
-        # self.img_width
-        # self.img_height
-        # self.max_length
-        # self.characters
+        self.train_img_path_list = sorted(self.get_image_files(captcha_type, train=True))
+        self.image_width, self.image_height, self.max_length, self.characters, self.labels = self.train_info(self.train_img_path_list)
+        self.char_to_num = layers.experimental.preprocessing.StringLookup(vocabulary=list(self.characters), mask_token=None)
+        self.num_to_char = layers.experimental.preprocessing.StringLookup(
+            vocabulary=self.char_to_num.get_vocabulary(), mask_token=None, invert=True
+        )
+
+        # train_image = Image.open(self.train_img_path_list[-1])
+        # self.img_width = train_image.width
+        # self.img_height = train_image.height
+        # self.max_length = max([len(label) for label in self.get_image_files(captcha_type, train=True)])
+        # self.characters = sorted(set(char for label in self.get_image_files(captcha_type, train=True) for char in label))
+        # self.char_to_num = layers.experimental.preprocessing.StringLookup(vocabulary=list(self.characters), mask_token=None)
+        # self.num_to_char = layers.experimental.preprocessing.StringLookup(
+        #     vocabulary=self.char_to_num.get_vocabulary(), mask_token=None, invert=True
+        # )
 
     def quiet(self, value:bool):
 
@@ -52,9 +64,9 @@ class Hyper:
     def get_base_dir(self):
         return os.path.dirname(os.path.abspath(__file__))
 
-    def get_image_files(self, cap_type:CaptchaType, train=True):
+    def get_image_files(self, captcha_type:CaptchaType, train=True):
         baseDir = self.get_base_dir()
-        imgDir = os.path.join(baseDir, "images", cap_type.value, "train" if train else "pred")
+        imgDir = os.path.join(baseDir, "images", captcha_type.value, "train" if train else "pred")
         return glob.glob(imgDir + os.sep + "*.png")
 
     def get_image_info(self, img_path_list:list):
@@ -69,6 +81,16 @@ class Hyper:
         max_length = max([len(label) for label in labels])
         characters = sorted(set(char for label in labels for char in label))
         return max_length, characters
+
+    def train_info(self, train_image_paths:list):
+        image_path = train_image_paths[-1]
+        image = Image.open(image_path)
+        image_width = image.width
+        image_height = image.height
+        labels = [train_image_path.split(os.path.sep)[-1].split(".png")[0] for train_image_path in train_image_paths]
+        max_length = max([len(label) for label in labels])
+        characters = sorted(set(char for label in labels for char in label))
+        return image_width, image_height, max_length, characters, labels
 
     def get_weights_path(self, captcha_type:CaptchaType = None, weights_only:bool = None):
         if captcha_type is None:
@@ -90,16 +112,161 @@ class Hyper:
         weights_path = self.get_weights_path(captcha_type, weight_only)
         model = ApplyModel(weights_path, img_width, img_height, max_length, characters)
         return model
+    
+    def split_data(self, images, labels, train_size=0.9, shuffle=True):
+        # 1. Get the total size of the dataset
+        size = len(images)
+        # 2. Make an indices array and shuffle it, if required
+        indices = np.arange(size)
+        if shuffle:
+            np.random.shuffle(indices)
+        # 3. Get the size of training samples
+        train_samples = int(size * train_size)
+        # 4. Split data into training and validation sets
+        x_train, y_train = images[indices[:train_samples]], labels[indices[:train_samples]]
+        x_valid, y_valid = images[indices[train_samples:]], labels[indices[train_samples:]]
+        return x_train, x_valid, y_train, y_valid
 
-    def model_train(self, captcha_type:CaptchaType, patience:int=7):
-        train_img_path_list = self.get_image_files(captcha_type, train=True)
-        img_width, img_height = self.get_image_info(train_img_path_list)
-        CM = CreateModel(train_img_path_list, img_width, img_height)
+    def encode_single_sample(self, img_path, label):
+        # 1. Read image
+        img = tf.io.read_file(img_path)
+        # 2. Decode and convert to grayscale
+        img = tf.io.decode_png(img, channels=1)
+        # 3. Convert to float32 in [0, 1] range
+        img = tf.image.convert_image_dtype(img, tf.float32)
+        # 4. Resize to the desired size
+
+        # train_img_path_list = self.get_image_files(self.captcha_type, train=True)
+        # train_image = Image.open(train_img_path_list[-1])
+        # self.img_width = train_image.width
+        # self.img_height = train_image.height
+
+        img = tf.image.resize(img, [self.image_height, self.image_width])
+        # 5. Transpose the image because we want the time
+        # dimension to correspond to the width of the image.
+        img = tf.transpose(img, perm=[1, 0, 2])
+        # 6. Map the characters in label to numbers
+        label = self.char_to_num(tf.strings.unicode_split(label, input_encoding="UTF-8"))
+        # 7. Return a dict as our model is expecting two inputs
+        return {"image": img, "label": label}
+
+    def build_model(self):
+        # Inputs to the model
+        input_img = layers.Input(
+            shape=(self.image_width, self.image_height, 1), name="image", dtype="float32"
+        )
+        labels = layers.Input(name="label", shape=(None,), dtype="float32")
+
+        # First conv block
+        x = layers.Conv2D(
+            32,
+            (3, 3),
+            activation="relu",
+            kernel_initializer="he_normal",
+            padding="same",
+            name="Conv1",
+        )(input_img)
+        x = layers.MaxPooling2D((2, 2), name="pool1")(x)
+
+        # Second conv block
+        x = layers.Conv2D(
+            64,
+            (3, 3),
+            activation="relu",
+            kernel_initializer="he_normal",
+            padding="same",
+            name="Conv2",
+        )(x)
+        x = layers.MaxPooling2D((2, 2), name="pool2")(x)
+
+        # We have used two max pool with pool size and strides 2.
+        # Hence, downsampled feature maps are 4x smaller. The number of
+        # filters in the last layer is 64. Reshape accordingly before
+        # passing the output to the RNN part of the model
+        new_shape = ((self.image_width // 4), (self.image_height // 4) * 64)
+        x = layers.Reshape(target_shape=new_shape, name="reshape")(x)
+        x = layers.Dense(64, activation="relu", name="dense1")(x)
+        x = layers.Dropout(0.2)(x)
+
+        # RNNs
+        x = layers.Bidirectional(layers.LSTM(128, return_sequences=True, dropout=0.25))(x)
+        x = layers.Bidirectional(layers.LSTM(64, return_sequences=True, dropout=0.25))(x)
+
+        # Output layer
+        x = layers.Dense(len(self.characters) + 1, activation="softmax", name="dense2")(x)
+
+        # Add CTC layer for calculating CTC loss at each step
+        output = CTCLayer(name="ctc_loss")(labels, x)
+
+        # Define the model
+        model = keras.models.Model(
+            inputs=[input_img, labels], outputs=output, name="ocr_model_v1"
+        )
+        # Optimizer
+        opt = keras.optimizers.Adam()
+        # Compile the model and return
+        model.compile(optimizer=opt)
+        return model
+
+    def model_train(self, epochs=100, earlystolpping=True, patience:int=7, save_model:bool=True):
+        # batch_size = 16
+        # downsample_factor = 4
+        # x_train, x_valid, y_train, y_valid = self.split_data(np.array(self.train_img_path_list), np.array(self.labels))
+
+        # train_dataset = tf.data.Dataset.from_tensor_slices((x_train, y_train))
+        # train_dataset = (
+        #     train_dataset.map(
+        #         self.encode_single_sample, num_parallel_calls=tf.data.experimental.AUTOTUNE
+        #     )
+        #     .batch(batch_size)
+        #     .prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
+        # )
+
+        # validation_dataset = tf.data.Dataset.from_tensor_slices((x_valid, y_valid))
+        # validation_dataset = (
+        #     validation_dataset.map(
+        #         self.encode_single_sample, num_parallel_calls=tf.data.experimental.AUTOTUNE
+        #     )
+        #     .batch(batch_size)
+        #     .prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
+        # )
+
+        # model = self.build_model()
+        
+        # if earlystolpping == True:
+
+        #     # early_stopping_patience = 5
+        #     # Add early stopping
+        #     early_stopping = keras.callbacks.EarlyStopping(
+        #         monitor="val_loss", patience=patience, restore_best_weights=True
+        #     )
+
+        #     # Train the model
+        #     history = model.fit(
+        #         train_dataset,
+        #         validation_data=validation_dataset,
+        #         epochs=epochs,
+        #         callbacks=[early_stopping],
+        #     )
+        
+        # else:
+        #     # Train the model
+        #     history = model.fit(
+        #         train_dataset,
+        #         validation_data=validation_dataset,
+        #         epochs=epochs
+        #     )
+
+
+        # img_width, img_height = self.get_image_info(train_img_path_list)
+        CM = CreateModel(self.train_img_path_list, self.image_width, self.image_height)
         model = CM.train_model(epochs=100, earlystopping=True, early_stopping_patience=patience)
-        weights_path = self.get_weights_path(captcha_type, True)
-        model.save_weights(weights_path)
-        weights_path = self.get_weights_path(captcha_type, False)
-        model.save(weights_path)
+
+        if save_model:
+            weights_path = self.get_weights_path(self.captcha_type, True)
+            model.save_weights(weights_path)
+            weights_path = self.get_weights_path(self.captcha_type, False)
+            model.save(weights_path)
 
     def model_validate(self, captcha_type:CaptchaType = None, weight_only:bool = None):
 
