@@ -5,42 +5,31 @@ import sys
 import time
 from hyper import CaptchaType, Hyper
 
-START_TIME = time.time()
-ARGV = sys.argv
-CAPTCHA_TYPE = CaptchaType.SUPREME_COURT
-WEIGHT_ONLY = False
-HYPER = Hyper()
-PRED = ""
-IMG_PATH = ""
+argv = sys.argv
+exec = os.path.basename(argv[0])
 
-END_TIME = None
+# captcha_type = CaptchaType.GOV24
+# weights_only = True
+# image_path = "C:\\python\\captchaCracker\\images\\gov24\\pred\\716047.png"
+# hyper = Hyper(captcha_type=captcha_type, weights_only=weights_only, quiet_out=True)
+# pred = hyper.predict(image_path)
+# hyper.quiet(False)
+# print(pred)
+# sys.exit(0)
 
-def main(captchaType:CaptchaType, weight_only, imagePath:str):
-
-    pred = ""
-
-    try:
-        pred = HYPER.predict(captchaType, weight_only, imagePath)
-    except Exception as e:
-        HYPER.quiet(False)
-        print("Error:", e)
-
-    return pred
-
-if len(ARGV) < 3:
-    print("Usage: " + os.path.basename(ARGV[0]) + " supreme_court|gov24|nh_web_mail IMAGE_FILE")
+if len(sys.argv) < 3:
+    print("Usage: " + exec + " supreme_court|gov24|nh_web_mail IMAGE_PATH")
     sys.exit(-1)
 
+captcha_type = CaptchaType(argv[1])
+weights_only = True
+image_path = argv[2]
+
 if("__main__" == __name__):
-    HYPER.quiet(True)
-    CAPTCHA_TYPE = CaptchaType(ARGV[1])
-    IMG_PATH = ARGV[2]
-    PRED = main(CAPTCHA_TYPE, WEIGHT_ONLY, IMG_PATH)
-    HYPER.quiet(False)
-    print(PRED)
-    # END_TIME = time.time()
-    # print("time : ", END_TIME - START_TIME, "sec")
-    # print(PRED, CAPTCHA_TYPE, WEIGHT_ONLY, IMG_PATH)
+    hyper = Hyper(captcha_type=captcha_type, weight_only=weights_only, quiet_out=True)
+    pred = hyper.predict(image_path)
+    hyper.quiet(False)
+    print(pred)
     sys.exit(0)
 
 else:
