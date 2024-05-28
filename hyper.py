@@ -270,7 +270,7 @@ class Hyper:
 
         if save_model:
             weights_path = self.get_weights_path(self.captcha_type, True)
-            model.save_weights(weights_path)
+            model.save(weights_path)
             weights_path = self.get_weights_path(self.captcha_type, False)
             model.save(weights_path)
 
