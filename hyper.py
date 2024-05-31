@@ -19,11 +19,12 @@ class Hyper:
         self.STD_OUT = sys.stdout
         self.quiet(quiet_out)
         self.captcha_type = captcha_type
-        self.weights_only = weights_only
+        self.weight_only = weights_only
         self.quiet_out = quiet_out
         self.base_dir = self.get_base_dir()
         self.weights_path = self.get_weights_path(captcha_type, weights_only)
-        self.image_width, self.image_height, self.max_length, self.characters, self.labels, self.train_img_path_list = self.get_train_info()
+        self.train_img_path_list = self.get_image_files(captcha_type, train=True)
+        self.image_width, self.image_height, self.max_length, self.characters, self.labels = self.get_train_info(sorted(self.train_img_path_list))
 
         # Mapping characters to integers
         self.char_to_num = layers.experimental.preprocessing.StringLookup(
@@ -59,22 +60,22 @@ class Hyper:
         imgDir = os.path.join(baseDir, "images", captcha_type.value, "train" if train else "pred")
         return glob.glob(imgDir + os.sep + "*.png")
 
-    def get_train_info(self):
-        images = sorted(self.get_image_files(self.captcha_type, train=True))
-        image = Image.open(images[-1])
+    def get_train_info(self, train_image_paths:list):
+        image_path = train_image_paths[-1]
+        image = Image.open(image_path)
         image_width = image.width
         image_height = image.height
-        labels = [img.split(os.path.sep)[-1].split(".png")[0] for img in images]
+        labels = [train_image_path.split(os.path.sep)[-1].split(".png")[0] for train_image_path in train_image_paths]
         max_length = max([len(label) for label in labels])
         characters = sorted(set(char for label in labels for char in label))
-        return image_width, image_height, max_length, characters, labels, images
+        return image_width, image_height, max_length, characters, labels
 
     def get_weights_path(self, captcha_type:CaptchaType = None, weights_only:bool = None):
         if captcha_type is None:
             captcha_type = self.captcha_type
 
         if weights_only is None:
-            weights_only = self.weights_only
+            weights_only = self.weight_only
 
         weights_path = os.path.join(self.base_dir, "model", captcha_type.value)
         if weights_only:
@@ -84,9 +85,8 @@ class Hyper:
 
     def split_dataset(self, batch_size=16, train_size=0.9, shuffle=True):
         # 1. Get the total size of the dataset
-        image_width, image_height, max_length, characters, labels, train_img_path_list = self.get_train_info()
-        images = np.array(train_img_path_list)
-        labels = np.array(labels)
+        images = np.array(self.train_img_path_list)
+        labels = np.array(self.labels)
         size = len(images)
         # 2. Make an indices array and shuffle it, if required
         indices = np.arange(size)
@@ -207,7 +207,7 @@ class Hyper:
 
     def load_prediction_model(self):
 
-        if self.weights_only:
+        if self.weight_only:
             model = self.build_model()
             model.load_weights(self.weights_path)
         else:
@@ -245,7 +245,7 @@ class Hyper:
 
         return pred
 
-    def train_model(self, epochs=100, earlystopping=True, early_stopping_patience:int=8, save_weights:bool=True, save_model:bool=False):
+    def train_model(self, epochs=100, earlystopping=True, early_stopping_patience:int=7, save_model:bool=True):
         train_dataset, validation_dataset = self.split_dataset(batch_size=16, train_size=0.9, shuffle=True)
         model = self.build_model()
         
@@ -268,11 +268,9 @@ class Hyper:
                 epochs=epochs
             )
 
-        if save_weights:
-            weights_path = self.get_weights_path(self.captcha_type, True)
-            model.save(weights_path)
-
         if save_model:
+            weights_path = self.get_weights_path(self.captcha_type, True)
+            model.save_weights(weights_path)
             weights_path = self.get_weights_path(self.captcha_type, False)
             model.save(weights_path)
 
