@@ -26,7 +26,7 @@ weights_only = True
 image_path = argv[2]
 
 if("__main__" == __name__):
-    hyper = Hyper(captcha_type=captcha_type, weight_only=weights_only, quiet_out=True)
+    hyper = Hyper(captcha_type=captcha_type, weights_only=weights_only, quiet_out=True)
     pred = hyper.predict(image_path)
     hyper.quiet(False)
     print(pred)
