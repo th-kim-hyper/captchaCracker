@@ -1,7 +1,15 @@
 from hyper import CaptchaType, Hyper
 
-CAPTCHA_TYPE = CaptchaType.NH_WEB_MAIL
-PATIENCE = 8
+captcha_type = CaptchaType.NH_WEB_MAIL
+epochs = 100
+earlystopping = True
+early_stopping_patience = 8
+save_weights = True
+save_model = True
 
-# Hyper(CAPTCHA_TYPE, quiet_out=True).model_train(epochs=1, patience=PATIENCE, save_model=False)
-Hyper(CAPTCHA_TYPE).train_model(early_stopping_patience=PATIENCE)
+Hyper(captcha_type).train_model(
+    epochs=100,
+    earlystopping=earlystopping,
+    early_stopping_patience=early_stopping_patience,
+    save_weights=save_weights,
+    save_model=save_model)
