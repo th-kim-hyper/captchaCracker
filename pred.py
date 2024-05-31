@@ -1,9 +1,6 @@
 from hyper import CaptchaType, Hyper
 
-CAPTCHA_TYPE = CaptchaType.NH_WEB_MAIL
-WEIGHT_ONLY = True
+captcha_type = CaptchaType.NH_WEB_MAIL
+weights_only = True
 
-Hyper(CAPTCHA_TYPE, WEIGHT_ONLY).validate_model()
-# hyper.quiet(True)
-# hyper.model_validate()
-# hyper.quiet(False)
+Hyper(captcha_type, weights_only).validate_model()
