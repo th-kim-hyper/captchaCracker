@@ -213,10 +213,12 @@ class Hyper:
         else:
             model = keras.models.load_model(self.weights_path)
 
+        sum = model.summary()
+        print(sum)
+
         prediction_model = keras.models.Model(
             model.get_layer(name="image").input, model.get_layer(name="dense2").output
         )
-
         return prediction_model
 
     def predict(self, image_path:str, prediction_model=None):
@@ -270,11 +272,11 @@ class Hyper:
 
         if save_weights:
             weights_path = self.get_weights_path(self.captcha_type, True)
-            model.save(weights_path)
+            model.save(weights_path, save_format='h5')
 
         if save_model:
             weights_path = self.get_weights_path(self.captcha_type, False)
-            model.save(weights_path)
+            model.save(weights_path, save_format='tf')
 
     def validate_model(self):
         start = time.time()
@@ -300,10 +302,66 @@ import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
 
+def ctc_batch_cost(y_true, y_pred, input_length, label_length):
+    label_length = tf.cast(tf.squeeze(label_length, axis=-1), tf.int32)
+    input_length = tf.cast(tf.squeeze(input_length, axis=-1), tf.int32)
+    sparse_labels = tf.cast(
+        ctc_label_dense_to_sparse(y_true, label_length), tf.int32
+    )
+
+    y_pred = tf.math.log(
+        tf.transpose(y_pred, perm=[1, 0, 2]) + keras.backend.epsilon()
+    )
+
+    return tf.expand_dims(
+        tf.compat.v1.nn.ctc_loss(
+            inputs=y_pred, labels=sparse_labels, sequence_length=input_length
+        ),
+        1,
+    )
+
+def ctc_label_dense_to_sparse(labels, label_lengths):
+    label_shape = tf.shape(labels)
+    num_batches_tns = tf.stack([label_shape[0]])
+    max_num_labels_tns = tf.stack([label_shape[1]])
+
+    def range_less_than(old_input, current_input):
+        return tf.expand_dims(tf.range(tf.shape(old_input)[1]), 0) < tf.fill(
+            max_num_labels_tns, current_input
+        )
+
+    init = tf.cast(tf.fill([1, label_shape[1]], 0), tf.bool)
+    dense_mask = tf.compat.v1.scan(
+        range_less_than, label_lengths, initializer=init, parallel_iterations=1
+    )
+    dense_mask = dense_mask[:, 0, :]
+
+    label_array = tf.reshape(
+        tf.tile(tf.range(0, label_shape[1]), num_batches_tns), label_shape
+    )
+    label_ind = tf.compat.v1.boolean_mask(label_array, dense_mask)
+
+    batch_array = tf.transpose(
+        tf.reshape(
+            tf.tile(tf.range(0, label_shape[0]), max_num_labels_tns),
+            keras.backend.reverse(label_shape, 0),
+        )
+    )
+    batch_ind = tf.compat.v1.boolean_mask(batch_array, dense_mask)
+    indices = tf.transpose(
+        tf.reshape(keras.backend.concatenate([batch_ind, label_ind], axis=0), [2, -1])
+    )
+
+    vals_sparse = tf.compat.v1.gather_nd(labels, indices)
+
+    return tf.SparseTensor(
+        tf.cast(indices, tf.int64), vals_sparse, tf.cast(label_shape, tf.int64)
+    )
+
 class CTCLayer(layers.Layer):
     def __init__(self, name=None):
         super().__init__(name=name)
-        self.loss_fn = keras.backend.ctc_batch_cost
+        self.loss_fn = ctc_batch_cost
 
     def call(self, y_true, y_pred):
         # Compute the training-time loss value and add it
