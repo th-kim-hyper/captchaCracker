@@ -27,9 +27,28 @@ image_path = argv[2]
 
 if("__main__" == __name__):
     hyper = Hyper(captcha_type=captcha_type, weights_only=weights_only, quiet_out=True)
-    pred = hyper.predict(image_path)
+
+    # from PIL import Image
+    # img = Image.open(image_path)
+
+    # fill_color = (255,255,255)  # your new background color
+    # img = img.convert("RGBA")   # it had mode P after DL it from OP
+    # if img.mode in ('RGBA', 'LA'):
+    #     background = Image.new(img.mode[:-1], img.size, fill_color)
+    #     background.paste(img, img.split()[-1]) # omit transparency
+    #     img = background
+
+    # new_image_path = "./whitebg.png"
+    # img.save(new_image_path)
+
+    temp_image_path = hyper.setBG(image_path)
+    pred = hyper.predict(temp_image_path)
     hyper.quiet(False)
     print(pred)
+
+    if os.path.exists(temp_image_path):
+        os.remove(temp_image_path)
+
     sys.exit(0)
 
 else:

@@ -118,6 +118,18 @@ class Hyper:
 
         return train_dataset, validation_dataset
 
+    def setBG(self, image_path, color=(255,255,255)):
+        img = Image.open(image_path)
+        fill_color = color
+        img = img.convert("RGBA")
+        if img.mode in ('RGBA', 'LA'):
+            background = Image.new(img.mode[:-1], img.size, fill_color)
+            background.paste(img, img.split()[-1]) # omit transparency
+            img = background
+        image_path = "./temp_white_bg.png"
+        img.save(image_path)
+        return image_path
+
     def encode_single_sample(self, image_path, label):
         img = tf.io.read_file(image_path)
         img = tf.io.decode_png(img, channels=1)
