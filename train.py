@@ -1,6 +1,6 @@
 from hyper import CaptchaType, Hyper
 
-captcha_type = CaptchaType.SUPREME_COURT
+captcha_type = CaptchaType.GOV24
 epochs = 100
 earlystopping = True
 early_stopping_patience = 8
