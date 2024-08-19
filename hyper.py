@@ -6,6 +6,10 @@ from PIL import Image
 from enum import Enum
 import numpy as np
 import absl.logging
+import tensorflow as tf
+# from tensorflow import keras
+# from tensorflow.keras import layers
+from keras import layers, models, optimizers, backend, callbacks
 
 class CaptchaType(Enum):
     SUPREME_COURT = "supreme_court"
@@ -195,11 +199,11 @@ class Hyper:
         output = CTCLayer(name="ctc_loss")(labels, x)
 
         # Define the model
-        model = keras.models.Model(
+        model = models.Model(
             inputs=[input_img, labels], outputs=output, name="ocr_model_v1"
         )
         # Optimizer
-        opt = keras.optimizers.Adam()
+        opt = optimizers.Adam()
         # Compile the model and return
         model.compile(optimizer=opt)
         return model
@@ -207,7 +211,7 @@ class Hyper:
     def decode_batch_predictions(self, pred):
         input_len = np.ones(pred.shape[0]) * pred.shape[1]
         # Use greedy search. For complex tasks, you can use beam search
-        results = keras.backend.ctc_decode(pred, input_length=input_len, greedy=True)[0][0][
+        results = backend.ctc_decode(pred, input_length=input_len, greedy=True)[0][0][
             :, :self.max_length
         ]
         # Iterate over the results and get back the text
@@ -223,12 +227,12 @@ class Hyper:
             model = self.build_model()
             model.load_weights(self.weights_path)
         else:
-            model = keras.models.load_model(self.weights_path)
+            model = models.load_model(self.weights_path)
 
         sum = model.summary()
         print(sum)
 
-        prediction_model = keras.models.Model(
+        prediction_model = models.Model(
             model.get_layer(name="image").input, model.get_layer(name="dense2").output
         )
         return prediction_model
@@ -264,7 +268,7 @@ class Hyper:
         model = self.build_model()
         
         if earlystopping == True:
-            early_stopping = keras.callbacks.EarlyStopping(
+            early_stopping = callbacks.EarlyStopping(
                 monitor="val_loss", patience=early_stopping_patience, restore_best_weights=True
             )
             # Train the model
@@ -282,13 +286,15 @@ class Hyper:
                 epochs=epochs
             )
 
-        if save_weights:
-            weights_path = self.get_weights_path(self.captcha_type, True)
-            model.save(weights_path, save_format='h5')
-
-        if save_model:
-            weights_path = self.get_weights_path(self.captcha_type, False)
-            model.save(weights_path, save_format='tf')
+        # if save_model:
+        weights_path = self.get_weights_path(self.captcha_type, False)
+        model.save(weights_path)
+        
+        weights_path = self.get_weights_path(self.captcha_type, True)
+        model.save_weights(weights_path)
+        
+        weights_path = weights_path.replace(".weights.h5", ".checkpoint")
+        model.save_weights(weights_path)
 
     def validate_model(self):
         start = time.time()
@@ -310,10 +316,6 @@ class Hyper:
         print("Matched:", matched, ", Tottal : ", len(pred_img_path_list), ", Accuracy : ", matched/len(pred_img_path_list) * 100, "%")
         print("pred time : ", end - start, "sec")
 
-import tensorflow as tf
-from tensorflow import keras
-from tensorflow.keras import layers
-
 def ctc_batch_cost(y_true, y_pred, input_length, label_length):
     label_length = tf.cast(tf.squeeze(label_length, axis=-1), tf.int32)
     input_length = tf.cast(tf.squeeze(input_length, axis=-1), tf.int32)
@@ -322,7 +324,7 @@ def ctc_batch_cost(y_true, y_pred, input_length, label_length):
     )
 
     y_pred = tf.math.log(
-        tf.transpose(y_pred, perm=[1, 0, 2]) + keras.backend.epsilon()
+        tf.transpose(y_pred, perm=[1, 0, 2]) + backend.epsilon()
     )
 
     return tf.expand_dims(
@@ -356,12 +358,12 @@ def ctc_label_dense_to_sparse(labels, label_lengths):
     batch_array = tf.transpose(
         tf.reshape(
             tf.tile(tf.range(0, label_shape[0]), max_num_labels_tns),
-            keras.backend.reverse(label_shape, 0),
+            backend.reverse(label_shape, 0),
         )
     )
     batch_ind = tf.compat.v1.boolean_mask(batch_array, dense_mask)
     indices = tf.transpose(
-        tf.reshape(keras.backend.concatenate([batch_ind, label_ind], axis=0), [2, -1])
+        tf.reshape(backend.concatenate([batch_ind, label_ind], axis=0), [2, -1])
     )
 
     vals_sparse = tf.compat.v1.gather_nd(labels, indices)
@@ -373,7 +375,8 @@ def ctc_label_dense_to_sparse(labels, label_lengths):
 class CTCLayer(layers.Layer):
     def __init__(self, name=None):
         super().__init__(name=name)
-        self.loss_fn = ctc_batch_cost
+        # self.loss_fn = ctc_batch_cost
+        self.loss_fn = backend.ctc_batch_cost
 
     def call(self, y_true, y_pred):
         # Compute the training-time loss value and add it
