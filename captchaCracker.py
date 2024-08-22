@@ -1,55 +1,49 @@
-import os
-os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-import sys
-import time
-from hyper import CaptchaType, Hyper
-
-argv = sys.argv
-exec = os.path.basename(argv[0])
-
-# captcha_type = CaptchaType.GOV24
-# weights_only = True
-# image_path = "C:\\python\\captchaCracker\\images\\gov24\\pred\\716047.png"
-# hyper = Hyper(captcha_type=captcha_type, weights_only=weights_only, quiet_out=True)
-# pred = hyper.predict(image_path)
-# hyper.quiet(False)
-# print(pred)
-# sys.exit(0)
-
-if len(sys.argv) < 3:
-    print("Usage: " + exec + " supreme_court|gov24|nh_web_mail IMAGE_PATH")
-    sys.exit(-1)
-
-captcha_type = CaptchaType(argv[1])
-weights_only = True
-image_path = argv[2]
+import os, sys, time
+from PIL import Image
+from util import load_config, get_train_data_list
+from core import Model
 
 if("__main__" == __name__):
-    hyper = Hyper(captcha_type=captcha_type, weights_only=weights_only, quiet_out=True)
+    
+    argv = sys.argv
+    exec = os.path.basename(argv[0])
+    
+    if len(argv) < 3:
+        print('사용법 : ' + exec + ' <캡챠유형> <이미지파일경로>')
+        print('해당 캡챠 유형의 이미지를 인식한 결과를 반환합니다.')
+        print('<캡챠유형>은 미리제공되는 3가지 기본 유형이 있습니다. "supreme_court", "gov24", "wetax"')
+        print('<이미지파일경로>는 인식할 이미지 파일의 경로를 입력합니다. 예) "C:\\temp\\download.png"')
+        sys.exit(-1)    
 
-    # from PIL import Image
-    # img = Image.open(image_path)
+    captcha_type = argv[1]
+    image_path = argv[2]
+    config = load_config('config.yaml')
+    data_base_dir = config['data_base_dir']
+    model_base_dir = config['model_base_dir']
+    train_data_list = get_train_data_list()
+    train_data = train_data_list[captcha_type]
+    weights_only = False
+    model = Model(train_data=train_data, quiet_out=True)
 
-    # fill_color = (255,255,255)  # your new background color
-    # img = img.convert("RGBA")   # it had mode P after DL it from OP
-    # if img.mode in ('RGBA', 'LA'):
-    #     background = Image.new(img.mode[:-1], img.size, fill_color)
-    #     background.paste(img, img.split()[-1]) # omit transparency
-    #     img = background
+    temp_image_path=os.path.join("./temp", format(time.time(),"12.0f") + ".png")
+    
+    with Image.open(image_path) as image:
 
-    # new_image_path = "./whitebg.png"
-    # img.save(new_image_path)
+        if image.mode in ('RGBA', 'LA'):
+            background = Image.new(image.mode[:-1], image.size, (255, 255, 255))
+            background.paste(image, image.split()[-1]) # omit transparency
+            image = background
 
-    temp_image_path = hyper.setBG(image_path)
-    pred = hyper.predict(temp_image_path)
-    hyper.quiet(False)
+        image = image.convert(image.mode[:-1])
+        image.save(temp_image_path)
+        
+    pred = model.predict(temp_image_path)
+    
+    model.quiet(False)
     print(pred)
+    model.quiet(True)
 
     if os.path.exists(temp_image_path):
         os.remove(temp_image_path)
 
     sys.exit(0)
-
-else:
-    print("module imported")

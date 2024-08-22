@@ -1,6 +1,10 @@
-from hyper import CaptchaType, Hyper
+from util import get_train_data_list
+from core import Model
 
-captcha_type = CaptchaType.GOV24
-weights_only = True
+train_data_list = get_train_data_list()
+train_data = train_data_list['wetax']
 
-Hyper(captcha_type, weights_only).validate_model()
+model = Model(train_data=train_data, quiet_out=False)
+model.validate_model()
+
+print("Done!")
