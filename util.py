@@ -7,35 +7,6 @@ lowercase = ['a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q'
 uppercase = ['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z']
 alphanumeric = digits + lowercase + uppercase
 
-def load_config(cfg_file):
-    with open(cfg_file, 'r') as f:
-        config = yaml.load(f, Loader=yaml.Loader)
-    return config
-
-def get_train_data_list():
-    supreme_court = TrainData('SUPREME_COURT', 'supreme_court', '대법원 학습 데이터')
-    gov24 = TrainData('GOV24', 'gov24', '대한민국 정부 24 학습 데이터')
-    wetax = TrainData('WETAX', 'wetax', '지방세 납부/조회 학습 데이터')
-    return {'supreme_court':supreme_court, 'gov24':gov24, 'wetax':wetax}
-
-# def get_catpcha_list():
-#     supreme_court = Captcha('SUPREME_COURT', 'supreme_court', '대법원', TrainData('SUPREME_COURT', 'supreme_court', '대법원 학습 데이터'))
-#     gov24 = Captcha('GOV24', 'gov24', '대한민국 정부 24', TrainData('GOV24', 'gov24', '대한민국 정부 24 학습 데이터'))
-#     wetax = Captcha('WETAX', 'wetax', '지방세 납부/조회', TrainData('WETAX', 'wetax', '지방세 납부/조회 학습 데이터'))
-#     return {'supreme_court':supreme_court, 'gov24':gov24, 'wetax':wetax}
-
-def setBG(image_path, color=(255,255,255)):
-        img = Image.open(image_path)
-        fill_color = color
-        img = img.convert("RGBA")
-        if img.mode in ('RGBA', 'LA'):
-            background = Image.new(img.mode[:-1], img.size, fill_color)
-            background.paste(img, img.split()[-1]) # omit transparency
-            img = background
-        image_path = "./temp_white_bg.png"
-        img.save(image_path)
-        return image_path
-
 @dataclass
 class TrainData():
     id: str = 'SUPREME_COURT'
@@ -91,3 +62,32 @@ class TrainData():
 #     name: str = 'supreme_court'
 #     description: str = '대법원 캡챠'
 #     train_data:TrainData = None
+
+def load_config(cfg_file):
+    with open(cfg_file, 'r') as f:
+        config = yaml.load(f, Loader=yaml.Loader)
+    return config
+
+def get_train_data_list():
+    supreme_court = TrainData('SUPREME_COURT', 'supreme_court', '대법원 학습 데이터')
+    gov24 = TrainData('GOV24', 'gov24', '대한민국 정부 24 학습 데이터')
+    wetax = TrainData('WETAX', 'wetax', '지방세 납부/조회 학습 데이터')
+    return {'supreme_court':supreme_court, 'gov24':gov24, 'wetax':wetax}
+
+# def get_catpcha_list():
+#     supreme_court = Captcha('SUPREME_COURT', 'supreme_court', '대법원', TrainData('SUPREME_COURT', 'supreme_court', '대법원 학습 데이터'))
+#     gov24 = Captcha('GOV24', 'gov24', '대한민국 정부 24', TrainData('GOV24', 'gov24', '대한민국 정부 24 학습 데이터'))
+#     wetax = Captcha('WETAX', 'wetax', '지방세 납부/조회', TrainData('WETAX', 'wetax', '지방세 납부/조회 학습 데이터'))
+#     return {'supreme_court':supreme_court, 'gov24':gov24, 'wetax':wetax}
+
+def setBG(image_path, color=(255,255,255)):
+        img = Image.open(image_path)
+        fill_color = color
+        img = img.convert("RGBA")
+        if img.mode in ('RGBA', 'LA'):
+            background = Image.new(img.mode[:-1], img.size, fill_color)
+            background.paste(img, img.split()[-1]) # omit transparency
+            img = background
+        image_path = "./temp_white_bg.png"
+        img.save(image_path)
+        return image_path

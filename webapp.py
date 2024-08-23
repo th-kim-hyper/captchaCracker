@@ -1,19 +1,27 @@
 from cgi import FieldStorage
 import sys, time, os
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+if getattr(sys, 'frozen', False):
+    # If the application is run as a bundle, the PyInstaller bootloader
+    # extends the sys module by a flag frozen=True and sets the app 
+    # path into variable _MEIPASS'.
+    BASE_DIR = sys._MEIPASS
+else:
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+print(f"#### BASE_DIR : {BASE_DIR}")
+# BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 # BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # sys.path.append(BASE_DIR)
-print(BASE_DIR)
+# print(BASE_DIR)
 
-import util
-from flask import Flask, Request, Response, render_template, flash, request, redirect, url_for, send_file, jsonify
-from werkzeug.utils import secure_filename
+from util import TrainData
+from flask import Flask, render_template, request, send_file, jsonify
 from werkzeug.datastructures import FileStorage
 from PIL import Image
-from pprint import pprint as pp
 from core import Model
-# from hyper import CaptchaType, Hyper
 
 IMAGE_DIR = os.path.join(BASE_DIR, "images")
 MODEL_DIR = os.path.join(BASE_DIR, "model")
@@ -27,18 +35,22 @@ app.config['IMAGE_DIR'] = IMAGE_DIR
 app.config['MODEL_DIR'] = MODEL_DIR
 app.config['UPLOAD_DIR'] = UPLOAD_DIR
 
-train_data_list = util.get_train_data_list()
+supreme_court = TrainData('SUPREME_COURT', 'supreme_court', '대법원 학습 데이터', data_base_dir=IMAGE_DIR, model_base_dir=MODEL_DIR)
+gov24 = TrainData('GOV24', 'gov24', '대한민국 정부 24 학습 데이터', data_base_dir=IMAGE_DIR, model_base_dir=MODEL_DIR)
+wetax = TrainData('WETAX', 'wetax', '지방세 납부/조회 학습 데이터', data_base_dir=IMAGE_DIR, model_base_dir=MODEL_DIR)
+train_data_list = {'supreme_court':supreme_court, 'gov24':gov24, 'wetax':wetax}
 # train_data = train_data_list['wetax']
 
 models = {}
+# predict_models = {}
 
 for key in train_data_list.keys():
     train_data = train_data_list[key]
     model = Model(train_data=train_data, weights_only=False, quiet_out=True)
     models.update({key: model})
+    # predict_models.update({key: model.load_prediction_model()})
 
 # pp(models.keys())
-
 # models[CaptchaType.SUPREME_COURT.value] = Hyper(captcha_type=CaptchaType.SUPREME_COURT, weights_only=True, quiet_out=False)
 # models[CaptchaType.GOV24.value] = Hyper(captcha_type=CaptchaType.GOV24, weights_only=True, quiet_out=False)
 
@@ -68,8 +80,9 @@ def predict(captcha_type, file:FileStorage, image_file_path=None):
         image.save(save_path)  
 
     model:Model = models[captcha_type]
-    predict_model = model.load_prediction_model()
-    pred = predict_model.predict(save_path)
+    # predict_model = predict_models[captcha_type]
+    pred = model.predict(save_path)
+    # pred = model.decode_batch_predictions(pred)[0]
     # file_name = save_path.split(os.sep)[-1]
     
     p_time = time.time() - start_time
@@ -128,6 +141,5 @@ def images(name=None):
     return send_file(filepath, mimetype='image/png')
 
 if __name__ == '__main__':
-    app.debug = True
-    
+    app.debug = False    
     app.run("0.0.0.0")
