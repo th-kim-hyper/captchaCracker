@@ -55,7 +55,7 @@ class Model:
             tf.get_logger().setLevel('ERROR')
             tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
             absl.logging.set_verbosity(absl.logging.ERROR)
-            sys.stdout = self.NULL_OUT
+            # sys.stdout = self.NULL_OUT
         else:
             logging.getLogger("tensorflow").setLevel(logging.INFO)
             os.environ['TF_ENABLE_ONEDNN_OPTS'] = '1'
@@ -63,7 +63,7 @@ class Model:
             tf.get_logger().setLevel('INFO')
             tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.INFO)
             absl.logging.set_verbosity(absl.logging.INFO)
-            sys.stdout = self.STD_OUT
+            # sys.stdout = self.STD_OUT
 
     def split_dataset(self, batch_size=32, train_size=0.9, shuffle=True):
         # 1. Get the total size of the dataset
