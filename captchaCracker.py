@@ -23,7 +23,7 @@ if("__main__" == __name__):
     train_data_list = get_train_data_list()
     train_data = train_data_list[captcha_type]
     weights_only = False
-    model = Model(train_data=train_data, quiet_out=True)
+    model = Model(train_data=train_data, weights_only=False, quiet_out=True)
 
     temp_image_path=os.path.join("./temp", format(time.time(),"12.0f") + ".png")
     

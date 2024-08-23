@@ -84,7 +84,7 @@ class TrainData():
             weights_path = os.path.join(weights_path, "weights.h5")
 
         return weights_path
-    
+
 # @dataclass
 # class Captcha():
 #     id: str = 'SUPREME_COURT'
