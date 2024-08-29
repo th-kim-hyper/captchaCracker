@@ -45,6 +45,7 @@ class Model:
         self.num_to_char = layers.StringLookup(
             vocabulary=self.char_to_num.get_vocabulary(), mask_token=None, invert=True
         )
+        self.predict_model = None
 
     def quiet(self, value:bool):
         
@@ -55,7 +56,7 @@ class Model:
             tf.get_logger().setLevel('ERROR')
             tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
             absl.logging.set_verbosity(absl.logging.ERROR)
-            sys.stdout = self.NULL_OUT
+            # sys.stdout = self.NULL_OUT
         else:
             logging.getLogger("tensorflow").setLevel(logging.INFO)
             os.environ['TF_ENABLE_ONEDNN_OPTS'] = '1'
@@ -63,7 +64,7 @@ class Model:
             tf.get_logger().setLevel('INFO')
             tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.INFO)
             absl.logging.set_verbosity(absl.logging.INFO)
-            sys.stdout = self.STD_OUT
+            # sys.stdout = self.STD_OUT
 
     def split_dataset(self, batch_size=32, train_size=0.9, shuffle=True):
         # 1. Get the total size of the dataset
@@ -236,6 +237,7 @@ class Model:
         prediction_model = models.Model(
             model.get_layer(name="image").input, model.get_layer(name="dense2").output
         )
+
         return prediction_model
 
     def predict(self, image_path:str, prediction_model=None):
@@ -245,9 +247,10 @@ class Model:
         target_img = tf.reshape(target_img, shape=[1,image_width,image_height,1])
 
         if prediction_model is None:
-            prediction_model = self.load_prediction_model()
-
-        pred_val = prediction_model.predict(target_img)
+            prediction_model = self.load_prediction_model() if self.predict_model is None else self.predict_model
+        
+        self.predict_model = prediction_model
+        pred_val = self.predict_model.predict(target_img)
         pred = self.decode_batch_predictions(pred_val)[0]
 
         return pred
@@ -271,4 +274,3 @@ class Model:
         end = time.time()
         print("Matched:", matched, ", Tottal : ", len(pred_img_path_list), ", Accuracy : ", matched/len(pred_img_path_list) * 100, "%")
         print("pred time : ", end - start, "sec")
-
