@@ -7,7 +7,6 @@ lowercase = ['a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q'
 uppercase = ['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z']
 alphanumeric = digits + lowercase + uppercase
 
-<<<<<<< HEAD
 def load_config(cfg_file):
     with open(cfg_file, 'r') as f:
         config = yaml.load(f, Loader=yaml.Loader)
@@ -23,12 +22,6 @@ def get_train_data_list():
         'default':default, 'supreme_court':supreme_court, 'gov24':gov24, 'wetax':wetax
     }
 
-# def get_catpcha_list():
-#     supreme_court = Captcha('SUPREME_COURT', 'supreme_court', '대법원', TrainData('SUPREME_COURT', 'supreme_court', '대법원 학습 데이터'))
-#     gov24 = Captcha('GOV24', 'gov24', '대한민국 정부 24', TrainData('GOV24', 'gov24', '대한민국 정부 24 학습 데이터'))
-#     wetax = Captcha('WETAX', 'wetax', '지방세 납부/조회', TrainData('WETAX', 'wetax', '지방세 납부/조회 학습 데이터'))
-#     return {'supreme_court':supreme_court, 'gov24':gov24, 'wetax':wetax}
-
 def setBG(image_path, color=(255,255,255)):
         img = Image.open(image_path)
         fill_color = color
@@ -41,8 +34,6 @@ def setBG(image_path, color=(255,255,255)):
         img.save(image_path)
         return image_path
 
-=======
->>>>>>> bca50c3dcaef7a6e122958bcb24cbcfacdb4c786
 @dataclass
 class TrainData():
     id: str = 'SUPREME_COURT'
@@ -109,12 +100,6 @@ def get_train_data_list():
     gov24 = TrainData('GOV24', 'gov24', '대한민국 정부 24 학습 데이터')
     wetax = TrainData('WETAX', 'wetax', '지방세 납부/조회 학습 데이터')
     return {'supreme_court':supreme_court, 'gov24':gov24, 'wetax':wetax}
-
-# def get_catpcha_list():
-#     supreme_court = Captcha('SUPREME_COURT', 'supreme_court', '대법원', TrainData('SUPREME_COURT', 'supreme_court', '대법원 학습 데이터'))
-#     gov24 = Captcha('GOV24', 'gov24', '대한민국 정부 24', TrainData('GOV24', 'gov24', '대한민국 정부 24 학습 데이터'))
-#     wetax = Captcha('WETAX', 'wetax', '지방세 납부/조회', TrainData('WETAX', 'wetax', '지방세 납부/조회 학습 데이터'))
-#     return {'supreme_court':supreme_court, 'gov24':gov24, 'wetax':wetax}
 
 def setBG(image_path, color=(255,255,255)):
         img = Image.open(image_path)
