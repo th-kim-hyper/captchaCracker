@@ -96,10 +96,11 @@ def load_config(cfg_file):
     return config
 
 def get_train_data_list():
+    default = TrainData('DEFAULT', 'default', '기본 학습 데이터')
     supreme_court = TrainData('SUPREME_COURT', 'supreme_court', '대법원 학습 데이터')
     gov24 = TrainData('GOV24', 'gov24', '대한민국 정부 24 학습 데이터')
     wetax = TrainData('WETAX', 'wetax', '지방세 납부/조회 학습 데이터')
-    return {'supreme_court':supreme_court, 'gov24':gov24, 'wetax':wetax}
+    return {'default':default, 'supreme_court':supreme_court, 'gov24':gov24, 'wetax':wetax}
 
 def setBG(image_path, color=(255,255,255)):
         img = Image.open(image_path)
