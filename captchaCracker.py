@@ -23,9 +23,14 @@ if("__main__" == __name__):
     train_data_list = get_train_data_list()
     train_data = train_data_list[captcha_type]
     weights_only = False
+    
     model = Model(train_data=train_data, weights_only=False, quiet_out=True)
+    temp_dir = os.path.abspath("./temp")
 
-    temp_image_path=os.path.join("./temp", format(time.time(),"12.0f") + ".png")
+    if os.path.exists(temp_dir) == False:
+        os.makedirs(temp_dir)
+
+    temp_image_path=os.path.join("temp", f"{time.time():12.0f}.png")
     
     with Image.open(image_path) as image:
 
@@ -34,13 +39,12 @@ if("__main__" == __name__):
             background.paste(image, image.split()[-1]) # omit transparency
             image = background
 
-        image = image.convert(image.mode[:-1])
         image.save(temp_image_path)
         
     pred = model.predict(temp_image_path)
     
     model.quiet(False)
-    print(pred)
+    sys.stdout.write(pred)
     model.quiet(True)
 
     if os.path.exists(temp_image_path):

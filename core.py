@@ -8,7 +8,6 @@ class CTCLayer(layers.Layer):
 
     def __init__(self, name=None):
         super().__init__(name=name)
-        # self.loss_fn = ctc_batch_cost
         self.loss_fn = backend.ctc_batch_cost
 
     def call(self, y_true, y_pred):
@@ -230,9 +229,6 @@ class Model:
         else:
             weights_path = self.train_data.get_model_path(weights_only=False)
             model = models.load_model(weights_path)
-
-        sum = model.summary()
-        print(sum)
 
         prediction_model = models.Model(
             model.get_layer(name="image").input, model.get_layer(name="dense2").output
