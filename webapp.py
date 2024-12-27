@@ -17,11 +17,11 @@ print(f"#### BASE_DIR : {BASE_DIR}")
 # sys.path.append(BASE_DIR)
 # print(BASE_DIR)
 
-from util import TrainData
+from cc.Utils import TrainData
 from flask import Flask, render_template, request, send_file, jsonify
 from werkzeug.datastructures import FileStorage
 from PIL import Image
-from core import Model
+from cc.core import Model
 
 IMAGE_DIR = os.path.join(BASE_DIR, "images")
 MODEL_DIR = os.path.join(BASE_DIR, "model")
