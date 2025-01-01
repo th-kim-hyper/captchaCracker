@@ -39,7 +39,7 @@
 <body>
     <div>
         <h2>하이퍼정보 Captcha solver</h2>
-        <form id="frm" action="/predictPost" method="post" enctype="multipart/form-data">
+        <form id="frm" method="post" enctype="multipart/form-data" onsubmit="submitHandler(event);">
             <div id="drop_zone" ondrop="dropHandler(event);" ondragover="dragOverHandler(event);">
                 <p>업로드할 파일을 끌어다 놓으세요 <i>drop zone</i>.</p>
             </div>
@@ -89,10 +89,9 @@
             });
     
             const formData = new FormData();
-            // const file = document.getElementById("captchaFile").files[0];
-            const modelType = document.getElementById("modelType").value;
-            formData.append("captchaFile", files[0]);
-            formData.append("modelType", modelType);
+            const captcha_id = document.getElementById("captcha_id").value;
+            formData.append("captcha_file", files[0]);
+            formData.append("captcha_id", captcha_id);
             fetch("/api/predict", {
                 method: "POST",
                 body: formData
@@ -116,7 +115,7 @@
     
         function submitHandler(ev) {
             ev.preventDefault();
-            const files = document.getElementById("captchaFile").files;
+            const files = document.getElementById("captcha_file").files;
     
             if (files) {
                 predict(files);
@@ -145,14 +144,14 @@
             const captchaText = clone.querySelector(".captchaText");
             const img = clone.querySelector(".img");
             const procTime = clone.querySelector(".procTime");
-            const model_type = result["model_type"];
-            const file_name = result["file_name"];
+            const captcha_id = result["captcha_id"];
+            const captcha_file = result["captcha_file"];
             const pred = result["pred"];
             const p_time = result["p_time"];
-    
-            clone.id = file_name
+
+            clone.id = captcha_file
             captchaText.textContent = pred;
-            img.src = "/images?t=" + model_type + "&f=" + file_name;
+            img.src = "/images?t=" + captcha_id + "&f=" + captcha_file;
             procTime.textContent = p_time.toFixed(3);
             imgList.prepend(clone);
         }

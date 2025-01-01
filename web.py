@@ -1,10 +1,10 @@
-from cgi import FieldStorage
+# from cgi import FieldStorage
 import sys, time, os
-from watchdog.observers import Observer
-from watchdog.events import FileSystemEventHandler
-from flask import Flask, render_template, request, send_file, jsonify
-from werkzeug.datastructures import FileStorage
-from PIL import Image
+# from watchdog.observers import Observer
+# from watchdog.events import FileSystemEventHandler
+from flask import Flask, render_template, request, jsonify, send_file
+# from werkzeug.datastructures import FileStorage
+# from PIL import Image
 from cc.Core import get_captcha_type_list, CaptchaType, TrainData, Model
 
 if getattr(sys, 'frozen', False):
@@ -47,7 +47,7 @@ def predict(captcha_id, captcha_file):
     result['pred'] = pred
     result['confidence'] = float(confidence)
     result['p_time'] = p_time
-    
+
     return result
 
 @app.route('/', methods=['GET', 'POST'])
@@ -119,14 +119,13 @@ def predictApi(name=None):
     
     return jsonify(result)
 
-# @app.route('/images', methods=['GET'])
-# def images(name=None):
-#     model_type = request.args.get('t')
-#     file_name = request.args.get('f')
-#     filepath = os.path.join(UPLOAD_DIR, model_type, file_name)
-#     return send_file(filepath, mimetype='image/png')
+@app.route('/images', methods=['GET'])
+def images(name=None):
+    captcha_id = request.args.get('t')
+    captcha_file = request.args.get('f')
+    filepath = os.path.join(UPLOAD_DIR, captcha_id, captcha_file)
+    return send_file(filepath, mimetype='image/png')
 
 if __name__ == '__main__':
-    # start_observer()
     app.debug = False    
     app.run("0.0.0.0")
