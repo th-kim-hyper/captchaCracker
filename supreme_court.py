@@ -24,7 +24,7 @@ txtPred = None
 
 def init():
     global train_data, model, window, btnFileBrowser, txtImage, btnExec, canvas, txtPred
-    train_data = TrainData(images_base_dir=images_dir, model_base_dir=model_dir)
+    train_data = TrainData(images_base_dir=images_dir, model_dir=model_dir)
     model = Model(train_data=train_data, weights_only=True, verbose=0)
     model.load_prediction_model()
     

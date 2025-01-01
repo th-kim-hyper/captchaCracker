@@ -1,10 +1,9 @@
-import sys, os, glob, time
+import os, glob, time
 from PIL import Image
 from dataclasses import dataclass
 import numpy as np
 import tensorflow as tf
 from keras import layers, models, optimizers, callbacks, backend
-from cc.TrainData import TrainData
 from typing import Final
 
 DIGITS: Final = "0123456789"
@@ -13,11 +12,11 @@ UPPER_CASE: Final = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 ALPHABET: Final = LOWER_CASE + UPPER_CASE
 ALPHA_NUMERIC: Final = DIGITS + ALPHABET
 
-def get_train_data_list():
-    default = TrainData("DEFAULT", "default", "기본 학습 데이터")
-    supreme_court = TrainData("SUPREME_COURT", "supreme_court", "대법원 학습 데이터" )
-    gov24 = TrainData("GOV24", "gov24", "대한민국 정부 24 학습 데이터")
-    wetax = TrainData("WETAX", "wetax", "지방세 납부/조회 학습 데이터")
+def get_captcha_type_list(image_dir: str = "./images", model_dir: str = "./model"):
+    default = CaptchaType(id="default", name="기본값", desc="기본 학습 데이터", image_dir=image_dir, model_dir=model_dir)
+    supreme_court = CaptchaType(id="supreme_court", name="대법원", desc="대법원 학습 데이터", image_dir=image_dir, model_dir=model_dir)
+    gov24 = CaptchaType(id="gov24", name="gov24", desc="대한민국 정부 24 학습 데이터", image_dir=image_dir, model_dir=model_dir)
+    wetax = CaptchaType(id="wetax", name="wetax", desc="지방세 납부/조회 학습 데이터", image_dir=image_dir, model_dir=model_dir)
 
     return {
         "default": default,
@@ -28,41 +27,28 @@ def get_train_data_list():
 
 @dataclass
 class TrainData:
-    id: str = "SUPREME_COURT"
-    name: str = "supreme_court"
-    description: str = "대법원 학습 데이터"
-    images_base_dir: str = "./images"
-    model_base_dir: str = "./model"
+    id: str = "default"
+    image_dir: str = "./images"
+    model_dir: str = "./model"
     image_width: int = 0
     image_height: int = 0
     label_length: int = 0
-    characters: list = None
-    train_data_list: list = None
-    pred_data_list: list = None
-    labels: list = None
+    characters = list(DIGITS)
 
     def __post_init__(self):
         (
             self.image_width,
             self.image_height,
             self.label_length,
-            self.characters,
-            self.train_data_list,
-            self.pred_data_list,
-            self.labels,
+            self.characters
         ) = self.get_train_info()
-
-    def get_data_files(self, train=True):
-        data_dir = os.path.join(
-            self.images_base_dir, self.name, "train" if train else "pred"
-        )
-        return glob.glob(data_dir + os.sep + "*.png")
 
     def get_train_info(self):
         train_data_list = self.get_data_files(train=True)
-        pred_data_list = self.get_data_files(train=False)
-        image = Image.open(train_data_list[0])
-        image_width, image_height = image.size
+        
+        with Image.open(train_data_list[0]) as image:
+            image_width, image_height = image.size
+
         labels = [
             os.path.basename(data_path).split(".")[0] for data_path in train_data_list
         ]
@@ -73,13 +59,22 @@ class TrainData:
             image_height,
             label_length,
             characters,
-            train_data_list,
-            pred_data_list,
-            labels,
+        )        
+
+    def get_data_files(self, train=True):
+        data_dir = os.path.join(
+            self.image_dir, self.id, "train" if train else "pred"
         )
+        return glob.glob(data_dir + os.sep + "*.png")
+
+    def get_labels(self, train=True):
+        return [
+            os.path.basename(data_path).split(".")[0]
+            for data_path in self.get_data_files(train)
+        ]
 
     def get_model_path(self, weights_only=False):
-        weights_path = os.path.join(self.model_base_dir, self.name)
+        weights_path = os.path.join(self.model_dir, self.id)
 
         if os.path.exists(weights_path) == False:
             os.makedirs(weights_path)
@@ -88,6 +83,18 @@ class TrainData:
             weights_path = os.path.join(weights_path, "weights.h5")
 
         return weights_path
+
+@dataclass
+class CaptchaType:
+    id: str
+    name: str
+    desc: str
+    image_dir: str
+    model_dir: str
+    data: TrainData = None
+
+    def __post_init__(self):
+        self.data = TrainData(id=self.id, image_dir=self.image_dir, model_dir=self.model_dir)
 
 class CTCLayer(layers.Layer):
 
@@ -113,12 +120,11 @@ class CTCLayer(layers.Layer):
 
 class Model:
 
-    def __init__(self, train_data: TrainData, weights_only=True, verbose=1):
-        self.NULL_OUT = open(os.devnull, "w")
-        self.STD_OUT = sys.stdout
-        self.captcha_data = train_data
-        self.weights_only = weights_only
+    def __init__(self, train_data: TrainData, weights_only = True, save_model=False, save_weights=True, verbose=1):
         self.train_data = train_data
+        self.weights_only = weights_only
+        self.save_model = save_model
+        self.save_weights = save_weights
         self.char_to_num = layers.StringLookup(
             vocabulary=train_data.characters, num_oov_indices=0, mask_token=None
         )
@@ -128,16 +134,10 @@ class Model:
         self.predict_model = None
         self.verbose = verbose
 
-    def quiet(self, value: bool):
-        if value:
-            sys.stdout = self.NULL_OUT
-        else:
-            sys.stdout = self.STD_OUT
-
     def split_dataset(self, batch_size=32, train_size=0.9, shuffle=True):
         # 1. Get the total size of the dataset
-        images = np.array(self.train_data.train_data_list)
-        labels = np.array(self.train_data.labels)
+        images = np.array(self.train_data.get_data_files(train=True))
+        labels = np.array(self.train_data.get_labels(train=True))
         size = len(images)
         # 2. Make an indices array and shuffle it, if required
         indices = np.arange(size)
@@ -193,7 +193,7 @@ class Model:
     def build_model(self):
         # Inputs to the model
         input_img = layers.Input(
-            shape=(self.captcha_data.image_width, self.captcha_data.image_height, 1),
+            shape=(self.train_data.image_width, self.train_data.image_height, 1),
             name="image",
             dtype="float32",
         )
@@ -226,8 +226,8 @@ class Model:
         # filters in the last layer is 64. Reshape accordingly before
         # passing the output to the RNN part of the model
         new_shape = (
-            (self.captcha_data.image_width // 4),
-            (self.captcha_data.image_height // 4) * 64,
+            (self.train_data.image_width // 4),
+            (self.train_data.image_height // 4) * 64,
         )
         x = layers.Reshape(target_shape=new_shape, name="reshape")(x)
         x = layers.Dense(64, activation="relu", name="dense1")(x)
@@ -243,7 +243,7 @@ class Model:
 
         # Output layer
         x = layers.Dense(
-            len(list(self.captcha_data.characters)) + 1,
+            len(list(self.train_data.characters)) + 1,
             activation="softmax",
             name="dense2",
         )(x)
@@ -296,13 +296,17 @@ class Model:
                 train_dataset, validation_data=validation_dataset, epochs=epochs, verbose=self.verbose,
             )
 
-        if save_model:
-            model_path = self.train_data.get_model_path(False)
-            model.save(model_path)
-
         if save_weights:
             weights_path = self.train_data.get_model_path(True)
             model.save_weights(weights_path)
+
+        import absl.logging
+        absl.logging.set_verbosity(absl.logging.ERROR)
+
+        if save_model:
+            model_path = self.train_data.get_model_path(False)
+            print("model_path : ", model_path)
+            model.save(model_path)
 
     def decode_batch_predictions(self, pred):
         input_len = np.ones(pred.shape[0]) * pred.shape[1]
@@ -331,48 +335,43 @@ class Model:
             weights_path = self.train_data.get_model_path(weights_only=False)
             model = models.load_model(weights_path)
 
-        prediction_model = models.Model(
+        self.predict_model = models.Model(
             model.get_layer(name="image").input, model.get_layer(name="dense2").output
         )
 
-        self.predict_model = prediction_model
+        return self.predict_model
 
-        return prediction_model
-
-    def predict(self, image_path: str, prediction_model=None):
+    def predict(self, image_path: str):
         image_width = self.train_data.image_width
         image_height = self.train_data.image_height
         target_img = self.encode_single_sample(image_path, "")["image"]
         target_img = tf.reshape(target_img, shape=[1, image_width, image_height, 1])
 
-        if prediction_model is None:
-            prediction_model = (
-                self.load_prediction_model()
-                if self.predict_model is None
-                else self.predict_model
-            )
-
-        self.predict_model = prediction_model
+        if self.predict_model is None:
+            self.load_prediction_model()
+    
         pred_val = self.predict_model.predict(target_img, verbose=self.verbose)
         pred = self.decode_batch_predictions(pred_val)[0]
 
-        return pred
+        confidence = np.max(pred_val, axis=-1).mean()
+
+        return pred, confidence
 
     def validate_model(self):
         start = time.time()
         matched = 0
-        prediction_model = self.load_prediction_model()
-        pred_img_path_list = self.train_data.pred_data_list
+        pred_img_path_list = self.train_data.get_data_files(train=False)
 
         for pred_img_path in pred_img_path_list:
-            pred = self.predict(pred_img_path, prediction_model=prediction_model)
+            self.verbose = 0
+            pred, confidence = self.predict(pred_img_path)
             ori = os.path.basename(pred_img_path).split(".")[0]
             msg = ""
             if ori == pred:
                 matched += 1
             else:
                 msg = " Not matched!"
-            print("ori : ", ori, "pred : ", pred, msg)
+            print("ori : ", ori, "pred : ", pred, "confidence : ", confidence, msg)
 
         end = time.time()
         print(

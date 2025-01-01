@@ -1,11 +1,12 @@
 <!DOCTYPE html>
-<html lang="en">
-
+<html lang="ko" data-bs-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>하이퍼 캡차 우회</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
     <style>
+        
         #drop_zone {
             border: 5px solid blue;
             width: 600px;
@@ -33,43 +34,23 @@
             padding: 0;
             margin: 0;
         }
-
-        /* li::before {
-            content: "✨";
-        } */
-
-        /* .single-before, #imgList {
-            list-style: none;
-            padding: 0;
-            margin: 0;
-
-            li {
-                padding-left: 1rem;
-                text-indent: -0.7rem;
-            }
-
-            li::before {
-                content: "✨";
-            }
-        } */
     </style>
 </head>
-
 <body>
     <div>
         <h2>하이퍼정보 Captcha solver</h2>
-        <form id="frm" action="" method="post" enctype="multipart/form-data" onsubmit="submitHandler(event)">
+        <form id="frm" action="/predictPost" method="post" enctype="multipart/form-data">
             <div id="drop_zone" ondrop="dropHandler(event);" ondragover="dragOverHandler(event);">
                 <p>업로드할 파일을 끌어다 놓으세요 <i>drop zone</i>.</p>
             </div>
             <br />
-            <label for="modelType">모델 선택</label>
-            <select name="modelType" id="modelType">
-                <option value="supreme_court">대법원</option>
-                <option value="gov24">정부24</option>
+            <label for="captcha_id">모델 선택</label>
+            <select name="captcha_id" id="captcha_id">
+                {% for captcha in captcha_list %}
+                <option value="{{ captcha.id }}" {% if result.captcha_id == captcha.id %}selected{% endif %}>{{ captcha.name }}</option>
+                {% endfor %}
             </select>
-            <input type="file" id="captchaFile" accept=".png,.jpg,.jpeg,.bmp,.gif" name="captchaFile"
-                placeholder="Captcha">
+            <input type="file" id="captcha_file" accept=".png,.jpg,.jpeg,.bmp,.gif" name="captcha_file" placeholder="Captcha">
             <button type="submit">확인</button>
         </form>
         <ul id="imgList"></ul>
@@ -82,100 +63,100 @@
                     <hr>
                     <img class="img">
                     <hr>
-                    <lable>처리시간(초) : </lable><span class="procTime"></span>
+                    <label>처리시간(초) : </label><span class="procTime"></span>
                 </div>
             </div>
         </li>
     </template>
-</body>
-<script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM" crossorigin="anonymous"></script>
+    <script>
 
-    function fileChangeHandler(ev) {
-        const file = ev.target.files[0];
-        const formData = new FormData();
-    }
-
-    function predict(files) {
-
-        const drop_zone = document.getElementById("drop_zone");
-        const frm = document.getElementById("frm");
-        const body = document.body;
-
-        frm.childNodes.forEach((node) => {
-            if (node.nodeName.includes("input", "select", "button")) {
-                node.disabled = true;
-            }
-        });
-
-        const formData = new FormData();
-        // const file = document.getElementById("captchaFile").files[0];
-        const modelType = document.getElementById("modelType").value;
-        formData.append("captchaFile", files[0]);
-        formData.append("modelType", modelType);
-        fetch("/api/predict", {
-            method: "POST",
-            body: formData
-        })
-            .then((response) => response.json())
-            .then((data) => {
-                console.log(data);
-                predHandler(data);
-            })
-            .catch((error) => {
-                console.error("Error:", error);
-            })
-            .finally(() => {
-                frm.childNodes.forEach((node) => {
-                    if (node.nodeName.includes("input", "select", "button")) {
-                        node.disabled = false;
-                    }
-                });
+        function fileChangeHandler(ev) {
+            const file = ev.target.files[0];
+            const formData = new FormData();
+        }
+    
+        function predict(files) {
+    
+            const drop_zone = document.getElementById("drop_zone");
+            const frm = document.getElementById("frm");
+            const body = document.body;
+    
+            frm.childNodes.forEach((node) => {
+                if (node.nodeName.includes("input", "select", "button")) {
+                    node.disabled = true;
+                }
             });
-    }
-
-    function submitHandler(ev) {
-        ev.preventDefault();
-        const files = document.getElementById("captchaFile").files;
-
-        if (files) {
-            predict(files);
+    
+            const formData = new FormData();
+            // const file = document.getElementById("captchaFile").files[0];
+            const modelType = document.getElementById("modelType").value;
+            formData.append("captchaFile", files[0]);
+            formData.append("modelType", modelType);
+            fetch("/api/predict", {
+                method: "POST",
+                body: formData
+            })
+                .then((response) => response.json())
+                .then((data) => {
+                    console.log(data);
+                    predHandler(data);
+                })
+                .catch((error) => {
+                    console.error("Error:", error);
+                })
+                .finally(() => {
+                    frm.childNodes.forEach((node) => {
+                        if (node.nodeName.includes("input", "select", "button")) {
+                            node.disabled = false;
+                        }
+                    });
+                });
         }
-    }
-
-    function dropHandler(ev) {
-        console.log("File(s) dropped");
-        ev.preventDefault();
-        const files = ev.dataTransfer.files;
-
-        if (files) {
-            predict(files);
+    
+        function submitHandler(ev) {
+            ev.preventDefault();
+            const files = document.getElementById("captchaFile").files;
+    
+            if (files) {
+                predict(files);
+            }
         }
-    }
-
-    function dragOverHandler(ev) {
-        console.log("File(s) in drop zone");
-        ev.preventDefault();
-    }
-
-    function predHandler(result) {
-        const imgList = document.getElementById("imgList");
-        const imgCard = document.getElementById("imgCard");
-        const clone = imgCard.content.cloneNode(true);
-        const captchaText = clone.querySelector(".captchaText");
-        const img = clone.querySelector(".img");
-        const procTime = clone.querySelector(".procTime");
-        const model_type = result["model_type"];
-        const file_name = result["file_name"];
-        const pred = result["pred"];
-        const p_time = result["p_time"];
-
-        clone.id = file_name
-        captchaText.textContent = pred;
-        img.src = "/images?t=" + model_type + "&f=" + file_name;
-        procTime.textContent = p_time.toFixed(3);
-        imgList.prepend(clone);
-    }
-
-</script>
-
+    
+        function dropHandler(ev) {
+            console.log("File(s) dropped");
+            ev.preventDefault();
+            const files = ev.dataTransfer.files;
+    
+            if (files) {
+                predict(files);
+            }
+        }
+    
+        function dragOverHandler(ev) {
+            console.log("File(s) in drop zone");
+            ev.preventDefault();
+        }
+    
+        function predHandler(result) {
+            const imgList = document.getElementById("imgList");
+            const imgCard = document.getElementById("imgCard");
+            const clone = imgCard.content.cloneNode(true);
+            const captchaText = clone.querySelector(".captchaText");
+            const img = clone.querySelector(".img");
+            const procTime = clone.querySelector(".procTime");
+            const model_type = result["model_type"];
+            const file_name = result["file_name"];
+            const pred = result["pred"];
+            const p_time = result["p_time"];
+    
+            clone.id = file_name
+            captchaText.textContent = pred;
+            img.src = "/images?t=" + model_type + "&f=" + file_name;
+            procTime.textContent = p_time.toFixed(3);
+            imgList.prepend(clone);
+        }
+    
+    </script>
+</body>
 </html>

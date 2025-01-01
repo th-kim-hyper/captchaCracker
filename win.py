@@ -25,7 +25,7 @@ txtPred = None
 
 def init():
     global train_data, model, window, btnFileBrowser, txtImage, btnExec, canvas, txtPred
-    train_data = TrainData(images_base_dir=images_dir, model_base_dir=model_dir)
+    train_data = TrainData(images_base_dir=images_dir, model_dir=model_dir)
     model = Model(train_data=train_data, weights_only=True, verbose=0)
     model.load_prediction_model()
     
@@ -142,10 +142,9 @@ def gui():
 
     def update_captcha(*args):
         captcha_name = selected_captcha.get()
-        captcha_id = captcha_name.to_upper()
-        train_data = TrainData(id=captcha_id, name=captcha_name, images_base_dir=images_dir, model_base_dir=model)
+        captcha_id = captcha_name.upper()
+        train_data = TrainData(id=captcha_id, name=captcha_name, images_base_dir=images_dir, model_dir=model)
         model.train_data = train_data
-        
 
     selected_captcha.trace_add("write", update_captcha)
 

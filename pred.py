@@ -1,10 +1,10 @@
-from cc.Utils import get_train_data_list
-from cc.core import Model
+from cc.Core import get_captcha_type_list, CaptchaType, TrainData, Model
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
-train_data_list = get_train_data_list()
-train_data = train_data_list['default']
-
-model = Model(train_data=train_data, quiet_out=False)
+captcha_type_list:list[CaptchaType] = get_captcha_type_list()
+train_data:TrainData = captcha_type_list['default'].data
+model = Model(train_data=train_data)
 model.validate_model()
 
 print("Done!")
