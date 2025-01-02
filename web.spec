@@ -1,11 +1,10 @@
 # -*- mode: python ; coding: utf-8 -*-
 
-
 a = Analysis(
     ['web.py'],
     pathex=[],
     binaries=[],
-    datas=[],
+    datas=[('images', 'images'), ('model', 'model'), ('templates', 'templates'), ('static', 'static')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
