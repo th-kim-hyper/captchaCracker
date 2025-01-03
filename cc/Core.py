@@ -25,6 +25,25 @@ def get_captcha_type_list(image_dir: str = "./images", model_dir: str = "./model
         "wetax": wetax,
     }
 
+def setBG(image_path, color=(255,255,255)):
+    with Image.open(image_path) as img:
+        fill_color = color
+        img = img.convert(img.mode)
+        img_mode = img.mode
+        if img_mode in ('RGBA', 'LA'):
+            background = Image.new(img_mode[:-1], img.size, fill_color)
+            background.paste(img, img.split()[-1]) # omit transparency
+            background.save(image_path)
+
+def convert_transparent_to_white(image_path: str, output_path: str):
+    with Image.open(image_path) as img:
+        if img.mode in ('RGBA', 'LA'):
+            alpha = img.convert(img.mode).split()[-1]
+            bg = Image.new(img.mode, img.size, (255, 255, 255) + (255,))
+            bg.paste(img, mask=alpha)
+            img = bg.convert(alpha)
+        img.save(output_path)
+
 @dataclass
 class TrainData:
     id: str = "default"
