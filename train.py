@@ -3,13 +3,13 @@ import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 captcha_type_list = get_captcha_type_list()
-train_data = captcha_type_list['default'].data
+train_data = captcha_type_list['supreme_court'].data
 epochs = 100
 batch_size = 32
 earlystopping = True
 early_stopping_patience = 10
 save_weights = True
-save_model = False
+save_model = True
 
 model = Model(train_data=train_data, save_model=save_model, save_weights=save_weights) 
 model.train_model(
