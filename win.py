@@ -25,12 +25,13 @@ txtPred = None
 
 def init():
     global train_data, model, window, btnFileBrowser, txtImage, btnExec, canvas, txtPred
-    train_data = TrainData(images_base_dir=images_dir, model_dir=model_dir)
+    train_data = TrainData(image_dir=images_dir, model_dir=model_dir)
     model = Model(train_data=train_data, weights_only=True, verbose=0)
     model.load_prediction_model()
-    
-    if train_data.pred_data_list:
-        pred_image = train_data.pred_data_list[0]
+    pred_data_list = train_data.get_data_files(False)
+
+    if pred_data_list != None and len(pred_data_list) > 0:
+        pred_image = pred_data_list[0]
         model.predict(pred_image)
 
     return
