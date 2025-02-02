@@ -52,10 +52,7 @@ if("__main__" == __name__):
         image.save(temp_image_path)
         
     pred = model.predict(temp_image_path)
-    
-    # model.quiet(False)
     sys.stdout.write(pred)
-    # model.quiet(True)
 
     if os.path.exists(temp_image_path):
         os.remove(temp_image_path)

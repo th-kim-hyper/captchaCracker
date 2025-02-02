@@ -53,14 +53,16 @@ class TrainData:
     image_height: int = 0
     label_length: int = 0
     characters = list(DIGITS)
+    init:bool = True
 
     def __post_init__(self):
-        (
-            self.image_width,
-            self.image_height,
-            self.label_length,
-            self.characters
-        ) = self.get_train_info()
+        if self.init == True:
+            (
+                self.image_width,
+                self.image_height,
+                self.label_length,
+                self.characters
+            ) = self.get_train_info()
 
     def get_train_info(self):
         train_data_list = self.get_data_files(train=True)
@@ -78,7 +80,7 @@ class TrainData:
             image_height,
             label_length,
             characters,
-        )        
+        ) 
 
     def get_data_files(self, train=True):
         data_dir = os.path.join(
