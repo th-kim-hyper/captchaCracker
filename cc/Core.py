@@ -28,7 +28,7 @@ def get_captcha_type_list(image_dir: str = "./images", model_dir: str = "./model
 def setBG(image_path, color=(255,255,255)):
     with Image.open(image_path) as img:
         fill_color = color
-        img = img.convert(img.mode)
+        # img = img.convert(img.mode)
         img_mode = img.mode
         if img_mode in ('RGBA', 'LA'):
             background = Image.new(img_mode[:-1], img.size, fill_color)

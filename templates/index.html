@@ -11,6 +11,7 @@
             border: 5px solid blue;
             width: 600px;
             height: 10rem;
+            background-color: rgb(200, 200, 200);
         }
 
         .captchaText {
@@ -39,9 +40,14 @@
 <body>
     <div>
         <h2>하이퍼정보 Captcha solver</h2>
-        <form id="frm" method="post" enctype="multipart/form-data" onsubmit="submitHandler(event);">
-            <div id="drop_zone" ondrop="dropHandler(event);" ondragover="dragOverHandler(event);">
+        <form id="frm" method="post" enctype="multipart/form-data">
+            <div id="drop_zone" class="dropzone">
                 <p>업로드할 파일을 끌어다 놓으세요 <i>drop zone</i>.</p>
+                <div style="padding: 4 4 4 4;">
+                    <img id="captchaImage" alt="Captcha" class="img" style="display: none;">
+                    <br/>
+                    <img id="cropImage" alt="crop captcha" class="img" style="display: none;">
+                </div>
             </div>
             <br />
             <label for="captcha_id">모델 선택</label>
@@ -71,46 +77,94 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM" crossorigin="anonymous"></script>
     <script>
 
+        function imgLoadHandler(ev) {
+            console.log("Image loaded");
+            const imgElement = document.getElementById("captchaImage");
+            const cropImgElement = document.getElementById("cropImage");
+            const canvas = document.createElement("canvas");
+            const ctx = canvas.getContext("2d");
+            const cropWidth = 120; // 자를 너비
+            const cropHeight = 40; // 자를 높이
+            canvas.width = cropWidth;
+            canvas.height = cropHeight;
+            ctx.drawImage(imgElement, 1, 1, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight);
+            cropImgElement.src = canvas.toDataURL();
+            cropImgElement.style.display = "block";
+            const inputFile = document.getElementById("captcha_file");
+            inputFile.files = [dataURItoBlob(cropImgElement.src)];
+        }
+
         function fileChangeHandler(ev) {
+            console.log("File(s) selected");
             const file = ev.target.files[0];
             const formData = new FormData();
+            const reader = new FileReader();
+
+            // 이미지 미리보기 설정
+            reader.onload = function(e) {
+                const imgElement = document.getElementById("captchaImage");
+                imgElement.src = e.target.result;
+                imgElement.style.display = "block";
+
+/*
+                // 이미지가 로드된 후 캔버스에 그리기
+//                imgElement.onload = function() {
+                    const canvas = document.createElement("canvas");
+                    const ctx = canvas.getContext("2d");
+                    const cropWidth = 120; // 자를 너비
+                    const cropHeight = 40; // 자를 높이
+                    canvas.width = cropWidth;
+                    canvas.height = cropHeight;
+                    ctx.drawImage(imgElement, 1, 1, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight);
+                    //canvas.style.display = "block";
+                    cropImgElement.src = canvas.toDataURL();
+                    cropImgElement.style.display = "block";
+  //              };
+  */
+
+            };
+            reader.readAsDataURL(file);
         }
     
         function predict(files) {
-    
+            const protocol = window.location.protocol;
+            const useDomain = window.location.hostname.includes("dev.hyperinfo.co.kr");
+            const isHttps = protocol.includes("https");
             const drop_zone = document.getElementById("drop_zone");
             const frm = document.getElementById("frm");
             const body = document.body;
-    
+            const captcha_id = document.getElementById("captcha_id").value;
+            const formData = new FormData();
+            const apiUrl = (useDomain && isHttps) ? "/captcha/predictPost" : "/predictPost";
+
             frm.childNodes.forEach((node) => {
                 if (node.nodeName.includes("input", "select", "button")) {
                     node.disabled = true;
                 }
             });
-    
-            const formData = new FormData();
-            const captcha_id = document.getElementById("captcha_id").value;
+
             formData.append("captcha_file", files[0]);
             formData.append("captcha_id", captcha_id);
-            fetch("/api/predict", {
+
+            fetch(apiUrl, {
                 method: "POST",
                 body: formData
             })
-                .then((response) => response.json())
-                .then((data) => {
-                    console.log(data);
-                    predHandler(data);
-                })
-                .catch((error) => {
-                    console.error("Error:", error);
-                })
-                .finally(() => {
-                    frm.childNodes.forEach((node) => {
-                        if (node.nodeName.includes("input", "select", "button")) {
-                            node.disabled = false;
-                        }
-                    });
+            .then((response) => response.json())
+            .then((data) => {
+                console.log(data);
+                predHandler(data);
+            })
+            .catch((error) => {
+                console.error("Error:", error);
+            })
+            .finally(() => {
+                frm.childNodes.forEach((node) => {
+                    if (node.nodeName.includes("input", "select", "button")) {
+                        node.disabled = false;
+                    }
                 });
+            });
         }
     
         function submitHandler(ev) {
@@ -126,9 +180,11 @@
             console.log("File(s) dropped");
             ev.preventDefault();
             const files = ev.dataTransfer.files;
-    
-            if (files) {
-                predict(files);
+
+            if (files.length > 0) {
+                const fileInput = document.getElementById("captcha_file");
+                fileInput.files = files;
+                fileChangeHandler({ target: { files: files } });
             }
         }
     
@@ -138,6 +194,7 @@
         }
     
         function predHandler(result) {
+            const captchaImage = document.getElementById("captchaImage");
             const imgList = document.getElementById("imgList");
             const imgCard = document.getElementById("imgCard");
             const clone = imgCard.content.cloneNode(true);
@@ -151,11 +208,24 @@
 
             clone.id = captcha_file
             captchaText.textContent = pred;
-            img.src = "/images?t=" + captcha_id + "&f=" + captcha_file;
+            img.src = captchaImage.src;
             procTime.textContent = p_time.toFixed(3);
             imgList.prepend(clone);
         }
-    
+        
+        document.addEventListener("DOMContentLoaded", function() {
+            const mainForm = document.getElementById("frm");
+            const divDropZone = document.getElementById("drop_zone");
+            const captchaFile = document.getElementById("captcha_file");
+            const imgElement = document.getElementById("captchaImage");
+
+            mainForm.addEventListener("submit", submitHandler);
+            divDropZone.addEventListener("drop", dropHandler);
+            divDropZone.addEventListener("dragover", dragOverHandler);
+            captchaFile.addEventListener("change", fileChangeHandler);
+            // imgElement.addEventListener("load", imgLoadHandler);
+        });
+
     </script>
 </body>
 </html>

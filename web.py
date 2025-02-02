@@ -40,8 +40,31 @@ for key in captcha_type_list.keys():
     model.load_prediction_model()
     models.update({key: model})
 
+def supremeCourtPreprocess(image_path):
+    w = 120
+    h = 40
+
+    with Image.open(image_path) as img:
+        img_mode = img.mode
+        
+        if img_mode in ('RGBA', 'LA'):
+            background = Image.new(img_mode[:-1], img.size, (255, 255, 255))
+            background.paste(img, (0,0), img.split()[-1])
+            background.convert('RGB')
+            background.save(image_path)
+
+        if img.size[0] > w and img.size[1] > h:
+            with Image.new('RGB', (w, h), (255, 255, 255)) as bg:
+                cropped_img = img.crop((1, 1, w+1, h+1))
+                bg.paste(cropped_img, (0, 0))
+                bg.save(image_path, format='PNG')
+
 def predict(captcha_id, captcha_file):
     start_time = time.time()
+
+    if captcha_id == 'supreme_court':
+        supremeCourtPreprocess(captcha_file)
+
     model:Model = models[captcha_id]
     pred, confidence = model.predict(captcha_file)
     p_time = time.time() - start_time
@@ -125,12 +148,14 @@ def predictApi(name=None):
         with open(tmp_path, "wb") as f:
             f.write(captcha_data)
 
-        setBG(tmp_path)
-        # convert_transparent_to_white(tmp_path, tmp_path)            
-        captcha_image = Image.open(tmp_path)
-        # Crop 1 pixel border from the image
-        width, height = captcha_image.size
-        captcha_file = captcha_image.crop((1, 1, width - 1, height - 1))
+        # setBG(tmp_path)
+
+        # # convert_transparent_to_white(tmp_path, tmp_path)            
+        # captcha_image = Image.open(tmp_path)
+        # # Crop 1 pixel border from the image
+        # width, height = captcha_image.size
+        # captcha_file = captcha_image.crop((1, 1, width - 1, height - 1))
+        captcha_file = Image.open(tmp_path)
         result['captcha_id'] = captcha_id
         
         if(captcha_file != None):
