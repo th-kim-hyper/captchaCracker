@@ -277,7 +277,14 @@ class Model:
             inputs=[input_img, labels], outputs=output, name="ocr_model_v1"
         )
         # Optimizer
-        opt = optimizers.adam_v2.Adam()
+        
+        opts_props = dir(optimizers)
+        
+        if 'Adam' in opts_props:
+            opt = optimizers.Adam()
+        else:
+            opt = optimizers.adam_v2.Adam()
+
         # Compile the model and return
         model.compile(optimizer=opt)
         return model
