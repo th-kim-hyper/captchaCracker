@@ -280,10 +280,10 @@ class Model:
         
         opts_props = dir(optimizers)
         
-        if 'Adam' in opts_props:
-            opt = optimizers.Adam()
-        else:
+        if 'adam_v2' in opts_props:
             opt = optimizers.adam_v2.Adam()
+        else:
+            opt = optimizers.Adam()
 
         # Compile the model and return
         model.compile(optimizer=opt)
