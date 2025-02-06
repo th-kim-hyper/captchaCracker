@@ -57,8 +57,12 @@
                 {% endfor %}
             </select>
             <input type="file" id="captcha_file" accept=".png,.jpg,.jpeg,.bmp,.gif" name="captcha_file" placeholder="Captcha">
-            <button type="submit">확인</button>
+            <button type="submit">확인</button> 
         </form>
+        <div>
+            <input type="text" id="captcha_text" style="width: 6rem;">
+            <button id="btn_copy">복사</button>
+        </div>
         <ul id="imgList"></ul>
     </div>
     <template id="imgCard">
@@ -76,6 +80,12 @@
     </template>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM" crossorigin="anonymous"></script>
     <script>
+
+        function copyClipboard(ev) {
+            const predText = document.getElementById("captcha_text");
+            predText.select();
+            document.execCommand("copy");
+        }
 
         function imgLoadHandler(ev) {
             console.log("Image loaded");
@@ -99,6 +109,9 @@
             const file = ev.target.files[0];
             const formData = new FormData();
             const reader = new FileReader();
+            const predText = document.getElementById("captcha_text");
+
+            predText.value = "";
 
             // 이미지 미리보기 설정
             reader.onload = function(e) {
@@ -195,6 +208,7 @@
     
         function predHandler(result) {
             const captchaImage = document.getElementById("captchaImage");
+            const predText = document.getElementById("captcha_text");
             const imgList = document.getElementById("imgList");
             const imgCard = document.getElementById("imgCard");
             const clone = imgCard.content.cloneNode(true);
@@ -206,6 +220,7 @@
             const pred = result["pred"];
             const p_time = result["p_time"];
 
+            predText.value = pred;
             clone.id = captcha_file
             captchaText.textContent = pred;
             img.src = captchaImage.src;
@@ -218,12 +233,13 @@
             const divDropZone = document.getElementById("drop_zone");
             const captchaFile = document.getElementById("captcha_file");
             const imgElement = document.getElementById("captchaImage");
+            const copyClipboardButton = document.getElementById("btn_copy");
 
             mainForm.addEventListener("submit", submitHandler);
             divDropZone.addEventListener("drop", dropHandler);
             divDropZone.addEventListener("dragover", dragOverHandler);
             captchaFile.addEventListener("change", fileChangeHandler);
-            // imgElement.addEventListener("load", imgLoadHandler);
+            copyClipboardButton.addEventListener("click", copyClipboard);
         });
 
     </script>
