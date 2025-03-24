@@ -5,7 +5,7 @@ import sys, time, os
 from flask import Flask, render_template, request, jsonify, send_file
 # from werkzeug.datastructures import FileStorage
 # from PIL import Image
-from cc.Core import get_captcha_type_list, CaptchaType, TrainData, Model, setBG, convert_transparent_to_white
+from cc.Core import get_captcha_type_list, CaptchaType, TrainInfo, Model, setBG, convert_transparent_to_white
 import base64
 from flask_cors import CORS
 from PIL import Image
@@ -35,7 +35,7 @@ captcha_list = captcha_type_list.values()
 
 for key in captcha_type_list.keys():
     captcha_type:CaptchaType = captcha_type_list[key]
-    train_data:TrainData = captcha_type.data
+    train_data:TrainInfo = captcha_type.train_data
     model = Model(train_data=train_data)
     model.load_prediction_model()
     models.update({key: model})

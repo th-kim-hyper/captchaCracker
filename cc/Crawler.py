@@ -8,7 +8,7 @@ import time, os
 
 class Engine:
 
-    def __init__(self, train_data: TrainData):
+    def __init__(self, train_data: TrainInfo):
         self.train_data = train_data
         self.browser = None
         self.page = None        

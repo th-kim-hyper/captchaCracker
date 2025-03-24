@@ -1,9 +1,12 @@
 import os, glob, time
+os.environ["KERAS_BACKEND"] = "tensorflow"
 from PIL import Image
 from dataclasses import dataclass
 import numpy as np
 import tensorflow as tf
-from keras import layers, models, optimizers, callbacks, backend
+import keras
+from keras import ops
+from keras import layers
 from typing import Final
 
 DIGITS: Final = "0123456789"
@@ -13,10 +16,10 @@ ALPHABET: Final = LOWER_CASE + UPPER_CASE
 ALPHA_NUMERIC: Final = DIGITS + ALPHABET
 
 def get_captcha_type_list(image_dir: str = "./images", model_dir: str = "./model"):
-    default = CaptchaType(id="default", name="기본값", desc="기본 학습 데이터", image_dir=image_dir, model_dir=model_dir)
-    supreme_court = CaptchaType(id="supreme_court", name="대법원", desc="대법원 학습 데이터", image_dir=image_dir, model_dir=model_dir)
-    gov24 = CaptchaType(id="gov24", name="gov24", desc="대한민국 정부 24 학습 데이터", image_dir=image_dir, model_dir=model_dir)
-    wetax = CaptchaType(id="wetax", name="wetax", desc="지방세 납부/조회 학습 데이터", image_dir=image_dir, model_dir=model_dir)
+    default = CaptchaType(id="default", name="기본 캡챠", desc="기본 캡챠")
+    supreme_court = CaptchaType(id="supreme_court", name="대법원", desc="대법원 캡챠")
+    gov24 = CaptchaType(id="gov24", name="gov24", desc="대한민국 정부 24 캡챠")
+    wetax = CaptchaType(id="wetax", name="wetax", desc="WETAX 캡챠")
 
     return {
         "default": default,
@@ -45,19 +48,26 @@ def convert_transparent_to_white(image_path: str, output_path: str):
         img.save(output_path)
 
 @dataclass
-class TrainData:
-    id: str = "default"
-    image_dir: str = "./images"
-    model_dir: str = "./model"
-    image_width: int = 0
-    image_height: int = 0
-    label_length: int = 0
-    characters = list(DIGITS)
+class TrainInfo:
+    id: str
+    rev: int = 0
+    desc: str = "기본 학습 데이터"
+    base_dir: str = "./captcha_data"
+    train_image_path: str = "train"
+    pred_image_path: str = "pred"
+    model_path: str = "model"
+    image_width: int = 200
+    image_height: int = 50
+    label_length: int = 5
+    characters = list(ALPHA_NUMERIC)
     init:bool = True
 
     def __post_init__(self):
         if self.init == True:
             (
+                self.train_image_path,
+                self.pred_image_path,
+                self.model_path,
                 self.image_width,
                 self.image_height,
                 self.label_length,
@@ -65,9 +75,13 @@ class TrainData:
             ) = self.get_train_info()
 
     def get_train_info(self):
+        train_image_path = self.get_image_dir(train=True)
+        pred_image_path = self.get_image_dir(train=False)
+        model_path = self.get_model_path()
+        
         train_data_list = self.get_data_files(train=True)
         
-        with Image.open(train_data_list[0]) as image:
+        with Image.open(train_data_list[-1]) as image:
             image_width, image_height = image.size
 
         labels = [
@@ -75,18 +89,25 @@ class TrainData:
         ]
         label_length = max([len(label) for label in labels])
         characters = sorted(set(char for label in labels for char in label))
+        
         return (
+            train_image_path,
+            pred_image_path,
+            model_path,
             image_width,
             image_height,
             label_length,
             characters,
         ) 
 
+    def get_image_dir(self, train=True):
+        image_dir = os.path.join(self.base_dir, self.id, str(self.rev), 'images', 'train' if train else 'pred')
+        image_dir = os.path.abspath(image_dir)
+        return image_dir
+
     def get_data_files(self, train=True):
-        data_dir = os.path.join(
-            self.image_dir, self.id, "train" if train else "pred"
-        )
-        return glob.glob(data_dir + os.sep + "*.png")
+        image_dir = self.get_image_dir(train)
+        return glob.glob(os.path.join(image_dir, '*.png'))
 
     def get_labels(self, train=True):
         return [
@@ -95,43 +116,121 @@ class TrainData:
         ]
 
     def get_model_path(self, weights_only=False):
-        weights_path = os.path.join(self.model_dir, self.id)
+        model_path = os.path.join(self.base_dir, self.id, str(self.rev), 'model')
+        model_path = os.path.abspath(model_path)
 
-        if os.path.exists(weights_path) == False:
-            os.makedirs(weights_path)
+        if os.path.exists(model_path) == False:
+            os.makedirs(model_path)
 
         if weights_only:
-            weights_path = os.path.join(weights_path, "weights.h5")
+            model_path = os.path.join(model_path, "weights.h5")
 
-        return weights_path
+        return model_path
 
 @dataclass
 class CaptchaType:
-    id: str
-    name: str
-    desc: str
-    image_dir: str
-    model_dir: str
-    data: TrainData = None
+    id: str = 'default'
+    name: str = '기본캡챠'
+    desc: str = '기본 캡챠'
+    base_dir: str = './captcha_data'
+    train_data: TrainInfo = None
 
     def __post_init__(self):
-        self.data = TrainData(id=self.id, image_dir=self.image_dir, model_dir=self.model_dir)
+        self.train_data = TrainInfo(id=self.id, desc=self.desc + ' 학습 데이타', base_dir=self.base_dir)
+
+def ctc_batch_cost(y_true, y_pred, input_length, label_length):
+    label_length = ops.cast(ops.squeeze(label_length, axis=-1), dtype="int32")
+    input_length = ops.cast(ops.squeeze(input_length, axis=-1), dtype="int32")
+    sparse_labels = ops.cast(
+        ctc_label_dense_to_sparse(y_true, label_length), dtype="int32"
+    )
+
+    y_pred = ops.log(ops.transpose(y_pred, axes=[1, 0, 2]) + keras.backend.epsilon())
+
+    return ops.expand_dims(
+        tf.compat.v1.nn.ctc_loss(
+            inputs=y_pred, labels=sparse_labels, sequence_length=input_length
+        ),
+        1,
+    )
+
+def ctc_label_dense_to_sparse(labels, label_lengths):
+    label_shape = ops.shape(labels)
+    num_batches_tns = ops.stack([label_shape[0]])
+    max_num_labels_tns = ops.stack([label_shape[1]])
+
+    def range_less_than(old_input, current_input):
+        return ops.expand_dims(ops.arange(ops.shape(old_input)[1]), 0) < tf.fill(
+            max_num_labels_tns, current_input
+        )
+
+    init = ops.cast(tf.fill([1, label_shape[1]], 0), dtype="bool")
+    dense_mask = tf.compat.v1.scan(
+        range_less_than, label_lengths, initializer=init, parallel_iterations=1
+    )
+    dense_mask = dense_mask[:, 0, :]
+
+    label_array = ops.reshape(
+        ops.tile(ops.arange(0, label_shape[1]), num_batches_tns), label_shape
+    )
+    label_ind = tf.compat.v1.boolean_mask(label_array, dense_mask)
+
+    batch_array = ops.transpose(
+        ops.reshape(
+            ops.tile(ops.arange(0, label_shape[0]), max_num_labels_tns),
+            tf.reverse(label_shape, [0]),
+        )
+    )
+    batch_ind = tf.compat.v1.boolean_mask(batch_array, dense_mask)
+    indices = ops.transpose(
+        ops.reshape(ops.concatenate([batch_ind, label_ind], axis=0), [2, -1])
+    )
+
+    vals_sparse = tf.compat.v1.gather_nd(labels, indices)
+
+    return tf.SparseTensor(
+        ops.cast(indices, dtype="int64"), 
+        vals_sparse, 
+        ops.cast(label_shape, dtype="int64")
+    )
+
+def ctc_decode(y_pred, input_length, greedy=True, beam_width=100, top_paths=1):
+    input_shape = ops.shape(y_pred)
+    num_samples, num_steps = input_shape[0], input_shape[1]
+    y_pred = ops.log(ops.transpose(y_pred, axes=[1, 0, 2]) + keras.backend.epsilon())
+    input_length = ops.cast(input_length, dtype="int32")
+
+    if greedy:
+        (decoded, log_prob) = tf.nn.ctc_greedy_decoder(
+            inputs=y_pred, sequence_length=input_length
+        )
+    else:
+        (decoded, log_prob) = tf.compat.v1.nn.ctc_beam_search_decoder(
+            inputs=y_pred,
+            sequence_length=input_length,
+            beam_width=beam_width,
+            top_paths=top_paths,
+        )
+    decoded_dense = []
+    for st in decoded:
+        st = tf.SparseTensor(st.indices, st.values, (num_samples, num_steps))
+        decoded_dense.append(tf.sparse.to_dense(sp_input=st, default_value=-1))
+    return (decoded_dense, log_prob)
 
 class CTCLayer(layers.Layer):
-
     def __init__(self, name=None):
         super().__init__(name=name)
-        self.loss_fn = backend.ctc_batch_cost
+        self.loss_fn = ctc_batch_cost
 
     def call(self, y_true, y_pred):
         # Compute the training-time loss value and add it
         # to the layer using `self.add_loss()`.
-        batch_len = tf.cast(tf.shape(y_true)[0], dtype="int64")
-        input_length = tf.cast(tf.shape(y_pred)[1], dtype="int64")
-        label_length = tf.cast(tf.shape(y_true)[1], dtype="int64")
+        batch_len = ops.cast(ops.shape(y_true)[0], dtype="int64")
+        input_length = ops.cast(ops.shape(y_pred)[1], dtype="int64")
+        label_length = ops.cast(ops.shape(y_true)[1], dtype="int64")
 
-        input_length = input_length * tf.ones(shape=(batch_len, 1), dtype="int64")
-        label_length = label_length * tf.ones(shape=(batch_len, 1), dtype="int64")
+        input_length = input_length * ops.ones(shape=(batch_len, 1), dtype="int64")
+        label_length = label_length * ops.ones(shape=(batch_len, 1), dtype="int64")
 
         loss = self.loss_fn(y_true, y_pred, input_length, label_length)
         self.add_loss(loss)
@@ -141,7 +240,7 @@ class CTCLayer(layers.Layer):
 
 class Model:
 
-    def __init__(self, train_data: TrainData, weights_only = True, save_model=False, save_weights=True, verbose=1):
+    def __init__(self, train_data: TrainInfo, weights_only = True, save_model=False, save_weights=True, verbose=1):
         self.train_data = train_data
         self.weights_only = weights_only
         self.save_model = save_model
@@ -273,18 +372,11 @@ class Model:
         output = CTCLayer(name="ctc_loss")(labels, x)
 
         # Define the model
-        model = models.Model(
+        model = keras.models.Model(
             inputs=[input_img, labels], outputs=output, name="ocr_model_v1"
         )
         # Optimizer
-        
-        opts_props = dir(optimizers)
-        
-        if 'adam_v2' in opts_props:
-            opt = optimizers.adam_v2.Adam()
-        else:
-            opt = optimizers.Adam()
-
+        opt = keras.optimizers.Adam()
         # Compile the model and return
         model.compile(optimizer=opt)
         return model
@@ -305,7 +397,7 @@ class Model:
         model = self.build_model()
 
         if earlystopping == True:
-            early_stopping = callbacks.EarlyStopping(
+            early_stopping = keras.callbacks.EarlyStopping(
                 monitor="val_loss",
                 patience=early_stopping_patience,
                 restore_best_weights=True,
@@ -339,7 +431,7 @@ class Model:
     def decode_batch_predictions(self, pred):
         input_len = np.ones(pred.shape[0]) * pred.shape[1]
         # Use greedy search. For complex tasks, you can use beam search
-        results = backend.ctc_decode(pred, input_length=input_len, greedy=True)[0][0][
+        results = ctc_decode(pred, input_length=input_len, greedy=True)[0][0][
             :, : self.train_data.label_length
         ]
         # Iterate over the results and get back the text
@@ -361,10 +453,11 @@ class Model:
             model.load_weights(weights_path)
         else:
             weights_path = self.train_data.get_model_path(weights_only=False)
-            model = models.load_model(weights_path)
+            model = keras.models.load_model(weights_path)
 
-        self.predict_model = models.Model(
-            model.get_layer(name="image").input, model.get_layer(name="dense2").output
+        self.predict_model = keras.models.Model(
+            model.input[0], model.get_layer(name="dense2").output
+            # model.get_layer(name="image").input, model.get_layer(name="dense2").output
         )
 
         return self.predict_model
@@ -372,7 +465,7 @@ class Model:
     def predict(self, image_path: str):
         image_width = self.train_data.image_width
         image_height = self.train_data.image_height
-        target_img = self.encode_single_sample(image_path, "")["image"]
+        target_img = self.encode_single_sample(image_path, "012345")["image"]
         target_img = tf.reshape(target_img, shape=[1, image_width, image_height, 1])
 
         if self.predict_model is None:

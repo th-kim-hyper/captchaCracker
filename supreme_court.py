@@ -5,7 +5,7 @@ import tensorflow as tf
 tf.get_logger().setLevel('ERROR')
 
 from PIL import Image
-from cc.Core import Model, TrainData
+from cc.Core import Model, TrainInfo
 
 NULL_OUT = open(os.devnull, "w")
 STD_OUT = sys.stdout
@@ -53,8 +53,8 @@ if("__main__" == __name__):
         sys.exit(-1)
 
     sys.stdout = NULL_OUT
-    train_data = TrainData(
-        id=captcha_type, image_dir=images_dir, model_dir=model_dir,
+    train_data = TrainInfo(
+        id=captcha_type, base_dir=images_dir, model_path=model_dir,
         image_width=120, image_height=40, label_length=6, init=False)
     weights_only = False
     model = Model(train_data=train_data, weights_only=False, verbose=0)

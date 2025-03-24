@@ -2,10 +2,10 @@ import os, warnings
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 warnings.filterwarnings("ignore", category=FutureWarning)
 
-from cc.Core import Model, get_captcha_type_list, CaptchaType, TrainData
+from cc.Core import Model, get_captcha_type_list, CaptchaType, TrainInfo
 
 captcha_type_list = get_captcha_type_list()
-train_data = captcha_type_list['supreme_court'].data
+train_data = captcha_type_list['supreme_court'].train_data
 epochs = 100
 batch_size = 32
 earlystopping = True

@@ -12,7 +12,7 @@ if meipass:
     base_dir = meipass
 images_dir = os.path.join(base_dir, "images")
 model_dir = os.path.join(base_dir, "model")
-train_data:TrainData = {}
+train_data:TrainInfo = {}
 model:Model = {}
 
 window = None
@@ -25,7 +25,7 @@ txtPred = None
 
 def init():
     global train_data, model, window, btnFileBrowser, txtImage, btnExec, canvas, txtPred
-    train_data = TrainData(image_dir=images_dir, model_dir=model_dir)
+    train_data = TrainInfo(base_dir=images_dir, model_path=model_dir)
     model = Model(train_data=train_data, weights_only=True, verbose=0)
     model.load_prediction_model()
     pred_data_list = train_data.get_data_files(False)
@@ -144,7 +144,7 @@ def gui():
     def update_captcha(*args):
         captcha_name = selected_captcha.get()
         captcha_id = captcha_name.upper()
-        train_data = TrainData(id=captcha_id, name=captcha_name, images_base_dir=images_dir, model_dir=model)
+        train_data = TrainInfo(id=captcha_id, name=captcha_name, images_base_dir=images_dir, model_path=model)
         model.train_data = train_data
 
     selected_captcha.trace_add("write", update_captcha)
