@@ -123,7 +123,9 @@ class TrainInfo:
             os.makedirs(model_path)
 
         if weights_only:
-            model_path = os.path.join(model_path, "weights.h5")
+            model_path = os.path.join(model_path, ".weights.h5")
+        else:
+            model_path = os.path.join(model_path, "weights.keras")
 
         return model_path
 
@@ -217,20 +219,24 @@ def ctc_decode(y_pred, input_length, greedy=True, beam_width=100, top_paths=1):
         decoded_dense.append(tf.sparse.to_dense(sp_input=st, default_value=-1))
     return (decoded_dense, log_prob)
 
+@keras.saving.register_keras_serializable(package="Core")
 class CTCLayer(layers.Layer):
-    def __init__(self, name=None):
-        super().__init__(name=name)
+    def __init__(self, name=None, **kwargs):
+        super().__init__(name=name, **kwargs)
         self.loss_fn = ctc_batch_cost
+        self.supports_masking = True  # 마스킹 지원 추가
+
+    def get_config(self):
+        config = super().get_config()
+        return config
 
     def call(self, y_true, y_pred):
-        # Compute the training-time loss value and add it
-        # to the layer using `self.add_loss()`.
-        batch_len = ops.cast(ops.shape(y_true)[0], dtype="int64")
-        input_length = ops.cast(ops.shape(y_pred)[1], dtype="int64")
-        label_length = ops.cast(ops.shape(y_true)[1], dtype="int64")
+        batch_len = tf.shape(y_true)[0]
+        input_length = tf.shape(y_pred)[1]
+        label_length = tf.shape(y_true)[1]
 
-        input_length = input_length * ops.ones(shape=(batch_len, 1), dtype="int64")
-        label_length = label_length * ops.ones(shape=(batch_len, 1), dtype="int64")
+        input_length = tf.fill([batch_len, 1], input_length)
+        label_length = tf.fill([batch_len, 1], label_length)
 
         loss = self.loss_fn(y_true, y_pred, input_length, label_length)
         self.add_loss(loss)
@@ -246,7 +252,7 @@ class Model:
         self.save_model = save_model
         self.save_weights = save_weights
         self.char_to_num = layers.StringLookup(
-            vocabulary=train_data.characters, num_oov_indices=0, mask_token=None
+            vocabulary=train_data.characters, mask_token=None, num_oov_indices=0
         )
         self.num_to_char = layers.StringLookup(
             vocabulary=self.char_to_num.get_vocabulary(), mask_token=None, invert=True
@@ -304,81 +310,94 @@ class Model:
         image = tf.io.decode_png(image, channels=1)
         image = tf.image.convert_image_dtype(image, tf.float32)
         image = tf.image.resize(image, [image_height, image_width])
+
+        # 대비 조정
+        image = tf.image.adjust_contrast(image, 1.5)
+        # 노이즈 제거 (선택적으로 적용)
+        image = tf.image.per_image_standardization(image)
+
         image = tf.transpose(image, perm=[1, 0, 2])
         label = self.char_to_num(
             tf.strings.unicode_split(label, input_encoding="UTF-8")
         )
         return {"image": image, "label": label}
 
-    def build_model(self):
+    def build_model(self, hard_mode=False):
         # Inputs to the model
-        input_img = layers.Input(
-            shape=(self.train_data.image_width, self.train_data.image_height, 1),
-            name="image",
-            dtype="float32",
-        )
+        width, height = self.train_data.image_width, self.train_data.image_height
+        input_img = layers.Input(shape=(width, height, 1), name="image", dtype="float32")
         labels = layers.Input(name="label", shape=(None,), dtype="float32")
 
-        # First conv block
-        x = layers.Conv2D(
-            32,
-            (3, 3),
-            activation="relu",
-            kernel_initializer="he_normal",
-            padding="same",
-            name="Conv1",
-        )(input_img)
-        x = layers.MaxPooling2D((2, 2), name="pool1")(x)
+        if hard_mode :
+            x = layers.Conv2D(64, (3, 3), activation="relu", kernel_initializer="he_normal", padding="same", name="Conv1")(input_img)
+            x = layers.BatchNormalization()(x)
+            x = layers.Conv2D(64, (3, 3), activation="relu", kernel_initializer="he_normal", padding="same", name="Conv2")(x)
+            x = layers.BatchNormalization()(x)
+            x = layers.MaxPooling2D((2, 2), name="pool1")(x)
 
-        # Second conv block
-        x = layers.Conv2D(
-            64,
-            (3, 3),
-            activation="relu",
-            kernel_initializer="he_normal",
-            padding="same",
-            name="Conv2",
-        )(x)
-        x = layers.MaxPooling2D((2, 2), name="pool2")(x)
+            x = layers.Conv2D(128, (3, 3), activation="relu", kernel_initializer="he_normal", padding="same", name="Conv3")(x)
+            x = layers.BatchNormalization()(x)
+            x = layers.Conv2D(128, (3, 3), activation="relu", kernel_initializer="he_normal", padding="same", name="Conv4")(x)
+            x = layers.BatchNormalization()(x)
+            x = layers.MaxPooling2D((2, 2), name="pool2")(x)
 
-        # We have used two max pool with pool size and strides 2.
-        # Hence, downsampled feature maps are 4x smaller. The number of
-        # filters in the last layer is 64. Reshape accordingly before
-        # passing the output to the RNN part of the model
-        new_shape = (
-            (self.train_data.image_width // 4),
-            (self.train_data.image_height // 4) * 64,
-        )
-        x = layers.Reshape(target_shape=new_shape, name="reshape")(x)
-        x = layers.Dense(64, activation="relu", name="dense1")(x)
-        x = layers.Dropout(0.2)(x)
+            new_shape = (
+                (self.train_data.image_width // 4),
+                (self.train_data.image_height // 4) * 128,
+            )
+            x = layers.Reshape(target_shape=new_shape, name="reshape")(x)
+            x = layers.Dense(128, activation="relu", kernel_initializer="he_normal", name="dense1")(x)
+            x = layers.BatchNormalization()(x)
+            x = layers.Dropout(0.3)(x)
 
-        # RNNs
-        x = layers.Bidirectional(layers.LSTM(128, return_sequences=True, dropout=0.25))(
-            x
-        )
-        x = layers.Bidirectional(layers.LSTM(64, return_sequences=True, dropout=0.25))(
-            x
-        )
+            x = layers.Bidirectional(layers.LSTM(256, return_sequences=True, dropout=0.25, recurrent_dropout=0.1))(x)
+            x = layers.Bidirectional(layers.LSTM(128, return_sequences=True, dropout=0.25, recurrent_dropout=0.1))(x)
 
+            # unit = len(list(self.train_data.characters)) + 1
+            # x = layers.Dense(unit, activation="softmax", name="dense2")(x)
+            # output = CTCLayer(name="ctc_loss")(labels, x)
+            # model = keras.models.Model(inputs=[input_img, labels], outputs=output, name="ocr_model_v1")
+
+            lr_schedule = keras.optimizers.schedules.ExponentialDecay(
+                initial_learning_rate=0.001,
+                decay_steps=1000,
+                decay_rate=0.9
+            )
+
+            optimizer = keras.optimizers.Adam(learning_rate=lr_schedule)
+
+        else:
+
+            x = layers.Conv2D(32,(3, 3),activation="relu",kernel_initializer="he_normal",padding="same",name="Conv1")(input_img)
+            x = layers.MaxPooling2D((2, 2), name="pool1")(x)
+            x = layers.Conv2D(64,(3, 3),activation="relu",kernel_initializer="he_normal",padding="same",name="Conv2")(x)
+            x = layers.MaxPooling2D((2, 2), name="pool2")(x)
+
+            new_shape = (
+                (self.train_data.image_width // 4),
+                (self.train_data.image_height // 4) * 64,
+            )
+            x = layers.Reshape(target_shape=new_shape, name="reshape")(x)
+            x = layers.Dense(64, activation="relu", kernel_initializer="he_normal", name="dense1")(x)
+            x = layers.Dropout(0.2)(x)
+
+            x = layers.Bidirectional(layers.LSTM(128, return_sequences=True, dropout=0.25))(x)
+            x = layers.Bidirectional(layers.LSTM(64, return_sequences=True, dropout=0.25))(x)
+
+            optimizer = keras.optimizers.Adam()
+        
         # Output layer
-        x = layers.Dense(
-            len(list(self.train_data.characters)) + 1,
-            activation="softmax",
-            name="dense2",
-        )(x)
+        unit = len(list(self.train_data.characters)) + 1
+        x = layers.Dense(unit, activation="softmax", name="dense2")(x)
 
         # Add CTC layer for calculating CTC loss at each step
         output = CTCLayer(name="ctc_loss")(labels, x)
 
         # Define the model
-        model = keras.models.Model(
-            inputs=[input_img, labels], outputs=output, name="ocr_model_v1"
-        )
-        # Optimizer
-        opt = keras.optimizers.Adam()
+        model = keras.models.Model(inputs=[input_img, labels], outputs=output, name="ocr_model_v1")
+
         # Compile the model and return
-        model.compile(optimizer=opt)
+        model.compile(optimizer=optimizer)
         return model
 
     def train_model(
@@ -396,18 +415,25 @@ class Model:
         )
         model = self.build_model()
 
+        callbacks = []
+        
         if earlystopping == True:
-            early_stopping = keras.callbacks.EarlyStopping(
-                monitor="val_loss",
-                patience=early_stopping_patience,
-                restore_best_weights=True,
+            callbacks.append(
+                keras.callbacks.EarlyStopping(
+                    monitor="val_loss", patience=early_stopping_patience, restore_best_weights=True
+                )
             )
+            # early_stopping = keras.callbacks.EarlyStopping(
+            #     monitor="val_loss",
+            #     patience=early_stopping_patience,
+            #     restore_best_weights=True,
+            # )
             # Train the model
             history = model.fit(
                 train_dataset,
                 validation_data=validation_dataset,
                 epochs=epochs,
-                callbacks=[early_stopping],
+                callbacks=callbacks,
                 verbose=1,
             )
         else:
@@ -420,8 +446,8 @@ class Model:
             weights_path = self.train_data.get_model_path(True)
             model.save_weights(weights_path)
 
-        import absl.logging
-        absl.logging.set_verbosity(absl.logging.ERROR)
+        # import absl.logging
+        # absl.logging.set_verbosity(absl.logging.ERROR)
 
         if save_model:
             model_path = self.train_data.get_model_path(False)
@@ -453,11 +479,10 @@ class Model:
             model.load_weights(weights_path)
         else:
             weights_path = self.train_data.get_model_path(weights_only=False)
-            model = keras.models.load_model(weights_path)
+            model = keras.models.load_model(weights_path, custom_objects={"CTCLayer": CTCLayer})
 
         self.predict_model = keras.models.Model(
             model.input[0], model.get_layer(name="dense2").output
-            # model.get_layer(name="image").input, model.get_layer(name="dense2").output
         )
 
         return self.predict_model
@@ -465,7 +490,8 @@ class Model:
     def predict(self, image_path: str):
         image_width = self.train_data.image_width
         image_height = self.train_data.image_height
-        target_img = self.encode_single_sample(image_path, "012345")["image"]
+        label = ''.join(self.train_data.characters[:self.train_data.label_length])
+        target_img = self.encode_single_sample(image_path, label)["image"]
         target_img = tf.reshape(target_img, shape=[1, image_width, image_height, 1])
 
         if self.predict_model is None:
