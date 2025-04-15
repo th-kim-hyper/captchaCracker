@@ -20,12 +20,14 @@ def get_captcha_type_list(image_dir: str = "./images", model_dir: str = "./model
     supreme_court = CaptchaType(id="supreme_court", name="대법원", desc="대법원 캡챠")
     gov24 = CaptchaType(id="gov24", name="gov24", desc="대한민국 정부 24 캡챠")
     wetax = CaptchaType(id="wetax", name="wetax", desc="WETAX 캡챠")
+    kshop = CaptchaType(id="kshop", name="kshop", desc="KT Shopping 캡챠")
 
     return {
         "default": default,
         "supreme_court": supreme_court,
         "gov24": gov24,
         "wetax": wetax,
+        "kshop": kshop,
     }
 
 def setBG(image_path, color=(255,255,255)):
