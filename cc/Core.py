@@ -1,7 +1,7 @@
 import os, glob, time
 os.environ["KERAS_BACKEND"] = "tensorflow"
 from PIL import Image
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import numpy as np
 import tensorflow as tf
 import keras
@@ -61,7 +61,7 @@ class TrainInfo:
     image_width: int = 200
     image_height: int = 50
     label_length: int = 5
-    characters = list(ALPHA_NUMERIC)
+    characters:list = field(default_factory=lambda: list(ALPHA_NUMERIC))
     init:bool = True
 
     def __post_init__(self):
