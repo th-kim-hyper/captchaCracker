@@ -6,10 +6,11 @@ from cc.Core import Model, get_captcha_type_list
 captcha_id = 'kshop'
 captcha_type_list = get_captcha_type_list()
 train_data = captcha_type_list[captcha_id].train_data
-epochs = 100
+train_data.threshold = 60
+epochs = 120
 batch_size = 32
 earlystopping = True
-early_stopping_patience = 12
+early_stopping_patience = 16
 save_weights = True
 save_model = True
 

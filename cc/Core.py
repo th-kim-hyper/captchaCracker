@@ -63,6 +63,7 @@ class TrainInfo:
     label_length: int = 5
     characters:list = field(default_factory=lambda: list(ALPHA_NUMERIC))
     init:bool = True
+    threshold: int = 0
 
     def __post_init__(self):
         if self.init == True:
@@ -73,7 +74,8 @@ class TrainInfo:
                 self.image_width,
                 self.image_height,
                 self.label_length,
-                self.characters
+                self.characters,
+                self.threshold
             ) = self.get_train_info()
 
     def get_train_info(self):
@@ -91,6 +93,7 @@ class TrainInfo:
         ]
         label_length = max([len(label) for label in labels])
         characters = sorted(set(char for label in labels for char in label))
+        threshold = 0
         
         return (
             train_image_path,
@@ -100,6 +103,7 @@ class TrainInfo:
             image_height,
             label_length,
             characters,
+            threshold,
         ) 
 
     def get_image_dir(self, train=True):
@@ -311,14 +315,15 @@ class Model:
         image = tf.io.read_file(image_path)
         image = tf.io.decode_png(image, channels=1)
         image = tf.image.convert_image_dtype(image, tf.float32)
+
+        threshold = self.train_data.threshold
+
+        if threshold > 0:
+            image = tf.where(image > threshold, 255.0, image)
+
         image = tf.image.resize(image, [image_height, image_width])
-
-        # 대비 조정
-        image = tf.image.adjust_contrast(image, 1.5)
-        # 노이즈 제거 (선택적으로 적용)
-        image = tf.image.per_image_standardization(image)
-
         image = tf.transpose(image, perm=[1, 0, 2])
+
         label = self.char_to_num(
             tf.strings.unicode_split(label, input_encoding="UTF-8")
         )
